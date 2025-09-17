@@ -14,7 +14,7 @@ import 'dart:async'; // Import for StreamSubscription
 // Import OverallDetailedUsageScreen
 
 // TODO: Replace 'YOUR_API_KEY' with your actual OpenWeatherMap API key
-const String _apiKey = 'YOUR_API_KEY'; // Placeholder for Weather API Key
+const String _apiKey = 'd542f2e03ea5728e77e367f19c0fb675'; // Placeholder for Weather API Key
 const String _cityName = 'Manila'; // Default city for weather
 
 class HomepageScreen extends StatefulWidget {
@@ -396,7 +396,7 @@ class _HomeScreenState extends State<HomepageScreen> {
                       offset: Offset(0, 20),
                  
                  child: Container(  // weather
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.transparent,
                       borderRadius: BorderRadius.circular(20),
@@ -546,117 +546,133 @@ class _HomeScreenState extends State<HomepageScreen> {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void _showFlyout(BuildContext context) { //flyout na nakaka baliw ayusin
+void _showFlyout(BuildContext context) { //Updated flyout with tap-to-exit and no sliding
   final screenSize = MediaQuery.of(context).size;
   showModalBottomSheet(
-     isScrollControlled: true,
+    isScrollControlled: true,
+    isDismissible: false, // Disable sliding down to close
+    enableDrag: false, // Disable drag to dismiss
     context: context,
     backgroundColor: Colors.transparent,
     builder: (context) {
-      return Align(
-        alignment: Alignment.centerRight,
-        child: Transform.translate(
-          offset: Offset(-90, -0), 
-          child: Container(
-            width: screenSize.width * 0.75,
-            height: screenSize.height -0,
-            decoration: BoxDecoration(
-              color: const Color(0xFF3D3D3D),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(0),
-                bottomLeft: Radius.circular(0),
-              ),
-            ),
+      return GestureDetector(
+        // Tap anywhere outside the flyout to close
+        onTap: () => Navigator.of(context).pop(),
+        child: Container(
+          color: Colors.transparent,
+          child: GestureDetector(
+            // Prevent taps on the flyout content from closing it
+            onTap: () {},
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Transform.translate(
+                offset: Offset(-90, -0), 
+                child: Container(
+                  width: screenSize.width * 0.75,
+                  height: screenSize.height -0,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3D3D3D),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(0),
+                      bottomLeft: Radius.circular(0),
+                    ),
+                  ),
 
-         
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+               
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
 
-               SizedBox(height: 60),
+                     SizedBox(height: 60),
 
-                Row( //profile icon, name, and email display
-                  children: [
-                    Icon(Icons.home, size: 50, color: Colors.white), 
-                    SizedBox(width: 10),
-                    Expanded( 
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row( //profile icon, name, and email display
                         children: [
-                          // UPDATED to use FutureBuilder for username
-                          FutureBuilder<String>(
-                            future: getCurrentUsername(),
-                            builder: (context, snapshot) {
-                              return Text(
-                                snapshot.data ?? "User", // Display username or "User" as fallback
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+                          Icon(Icons.home, size: 50, color: Colors.white), 
+                          SizedBox(width: 10),
+                          Expanded( 
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // UPDATED to use FutureBuilder for username
+                                FutureBuilder<String>(
+                                  future: getCurrentUsername(),
+                                  builder: (context, snapshot) {
+                                    return Text(
+                                      snapshot.data ?? "User", // Display username or "User" as fallback
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    );
+                                  },
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              );
-                            },
-                          ),
-                          Text(
-                            _auth.currentUser?.email ?? "No email", // Display actual user email
-                            style: GoogleFonts.inter(
-                              color: Colors.white70,
-                              fontSize: 14,
+                                Text(
+                                  _auth.currentUser?.email ?? "No email", // Display actual user email
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                  ),
+                                  overflow: TextOverflow.ellipsis, 
+                                  maxLines: 1, 
+                                ),
+                              ],
                             ),
-                            overflow: TextOverflow.ellipsis, 
-                            maxLines: 1, 
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
 
-          SizedBox(height: 40),
-          
-              ListTile(
+                SizedBox(height: 40),
                 
-                leading: Icon(Icons.person, color: Colors.white,size: 35,),
-                title: Text('Profile', style: GoogleFonts.inter( color: Colors.white)),
-                onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ProfileScreen()),
-              );
-            },
-              ),  
+                    ListTile(
+                      
+                      leading: Icon(Icons.person, color: Colors.white,size: 35,),
+                      title: Text('Profile', style: GoogleFonts.inter( color: Colors.white)),
+                      onTap: () {
+                        Navigator.pop(context); // Close flyout first
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => ProfileScreen()),
+                        );
+                      },
+                    ),  
 
-          SizedBox(height: 15),
-              ListTile(
-                leading: Icon(Icons.notifications, color: Colors.white, size: 35,),
-                title: Text('Notification', style: GoogleFonts.inter(color: Colors.white)),
-                 onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => NotificationScreen()),
-              );
-            },
-              ),  
+                SizedBox(height: 15),
+                    ListTile(
+                      leading: Icon(Icons.notifications, color: Colors.white, size: 35,),
+                      title: Text('Notification', style: GoogleFonts.inter(color: Colors.white)),
+                       onTap: () {
+                        Navigator.pop(context); // Close flyout first
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => NotificationScreen()),
+                        );
+                      },
+                    ),  
 
-              SizedBox(height: 15),
-                ListTile(
-              leading: Padding(
-                padding: EdgeInsets.only(left: 5),
-                child: Icon(Icons.logout, color: Colors.white, size: 35,),
+                    SizedBox(height: 15),
+                      ListTile(
+                    leading: Padding(
+                      padding: EdgeInsets.only(left: 5),
+                      child: Icon(Icons.logout, color: Colors.white, size: 35,),
+                    ),
+                      title: Text('Logout', style: GoogleFonts.inter(color: Colors.white)),
+                     onTap: () async {
+                        Navigator.pop(context); // Close flyout first
+                        await _auth.signOut(); // Actually sign out
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (context) => WelcomeScreen()),
+                          (Route<dynamic> route) => false,
+                        );
+                      },
+                    ),  
+                    ],
+                  ),
+                ),
               ),
-                title: Text('Logout', style: GoogleFonts.inter(color: Colors.white)),
-               onTap: () async {
-                await _auth.signOut(); // Actually sign out
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => WelcomeScreen()),
-                  (Route<dynamic> route) => false,
-                );
-              },
-              ),  
-              ],
             ),
           ),
         ),

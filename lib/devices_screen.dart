@@ -12,8 +12,8 @@ import 'dart:math'; // For min function
 import 'package:firebase_auth/firebase_auth.dart'; // Added import for FirebaseAuth
 import 'package:cloud_firestore/cloud_firestore.dart'; // For QueryDocumentSnapshot
 
-// TODO: Replace 'YOUR_API_KEY' with your actual OpenWeatherMap API key
-const String _apiKey = 'YOUR_API_KEY'; // Placeholder for Weather API Key
+// Updated with your OpenWeatherMap API key
+const String _apiKey = 'd542f2e03ea5728e77e367f19c0fb675'; // Your OpenWeatherMap API Key
 const String _cityName = 'Manila'; // Default city for weather
 
 class DevicesScreen extends StatefulWidget {
@@ -40,6 +40,9 @@ class DevicesScreenState extends State<DevicesScreen> {
   // UsageService instance
   UsageService? _usageService;
 
+  // FirebaseAuth instance
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   // Method to get username from Firestore
   Future<String> getCurrentUsername() async {
     try {
@@ -62,17 +65,8 @@ class DevicesScreenState extends State<DevicesScreen> {
     }
   }
 
-  // Added weather fetching method
+  // Updated weather fetching method with your API key
   Future<void> _fetchWeather() async {
-    if (_apiKey == 'YOUR_API_KEY') {
-      print("Weather API key is a placeholder. Please replace it.");
-      if (mounted) {
-        setState(() {
-          // Keep _currentWeather as null to show placeholder
-        });
-      }
-      return;
-    }
     WeatherFactory wf = WeatherFactory(_apiKey);
     try {
       Weather w = await wf.currentWeatherByCityName(_cityName);
@@ -81,10 +75,13 @@ class DevicesScreenState extends State<DevicesScreen> {
           _currentWeather = w;
         });
       }
+      print("Weather fetched successfully: ${w.temperature?.celsius?.toStringAsFixed(1)}°C - ${w.weatherDescription}");
     } catch (e) {
       print("Failed to fetch weather: $e");
       if (mounted) {
-        // Handle weather fetch error, e.g., show a default or error message
+        setState(() {
+          // Keep _currentWeather as null to show error state
+        });
       }
     }
   }
@@ -248,7 +245,6 @@ class DevicesScreenState extends State<DevicesScreen> {
     print("Master power button state: ${_masterPowerButtonState ? 'ON' : 'OFF'}");
   }
 
-
   @override
   void dispose() {
     _appliancesSubscription?.cancel();
@@ -373,7 +369,6 @@ class DevicesScreenState extends State<DevicesScreen> {
         // If IR is controlling and the device is already OFF, allow toggling ON
         // No confirmation needed in this case based on the prompt
     }
-
 
     final newStatus = currentStatus == 'ON' ? 'OFF' : 'ON';
     try {
@@ -507,11 +502,11 @@ class DevicesScreenState extends State<DevicesScreen> {
                     ),
                   ),
 
-                  // Updated weather section to match homepage
+                  // Updated weather section with working API
                   Transform.translate(
                     offset: Offset(0, 20),
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: EdgeInsets.symmetric(horizontal: 31, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.transparent,
                         borderRadius: BorderRadius.circular(20),
@@ -526,9 +521,7 @@ class DevicesScreenState extends State<DevicesScreen> {
                               Transform.translate(
                                 offset: Offset(0, -5),
                                 child: _currentWeather == null
-                                    ? (_apiKey == 'YOUR_API_KEY'
-                                        ? Text('Set API Key', style: GoogleFonts.inter(fontSize: 12))
-                                        : Text('Loading...', style: GoogleFonts.inter(fontSize: 12)))
+                                    ? Text('Loading...', style: GoogleFonts.inter(fontSize: 12))
                                     : Text(
                                         '${_currentWeather?.temperature?.celsius?.toStringAsFixed(0) ?? '--'}°C',
                                         style: GoogleFonts.inter(fontSize: 16),
@@ -539,7 +532,7 @@ class DevicesScreenState extends State<DevicesScreen> {
                           Transform.translate(
                             offset: Offset(40, -15),
                             child: Text(
-                              _currentWeather?.weatherDescription ?? (_apiKey == 'YOUR_API_KEY' ? 'Weather' : 'Fetching weather...'),
+                              _currentWeather?.weatherDescription ?? 'Loading weather...',
                               style: GoogleFonts.inter(
                                 color: Colors.grey,
                                 fontSize: 12,
@@ -579,14 +572,12 @@ class DevicesScreenState extends State<DevicesScreen> {
               Expanded(
                 child: GestureDetector(
                   onTap: () {
-                    
                     FocusScope.of(context).unfocus();
                   },
                   child: SingleChildScrollView(
                   child: Column(
                     children: [
                       const SizedBox(height: 20),
-                      
                       
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -745,104 +736,128 @@ class DevicesScreenState extends State<DevicesScreen> {
     );
   }
 
+  // UPDATED: Applied the same flyout exit function from homepage
   void _showFlyout(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     showModalBottomSheet(
       isScrollControlled: true,
+      isDismissible: false, // Disable sliding down to close
+      enableDrag: false, // Disable drag to dismiss
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: Transform.translate(
-            offset: const Offset(-90, 0), // Adjust if necessary for your layout
-            child: Container(
-              width: screenSize.width * 0.75,
-              height: screenSize.height,
-              decoration: const BoxDecoration(
-                color: Color(0xFF3D3D3D),
-                // borderRadius: BorderRadius.only( // Full height, no specific radius needed
-                //   topLeft: Radius.circular(0),
-                //   bottomLeft: Radius.circular(0),
-                // ),
-              ),
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 60),
-                  Row(
-                    children: [
-                      const Icon(Icons.home, size: 50, color: Colors.white),
-                      const SizedBox(width: 10),
-                      Expanded( 
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+        return GestureDetector(
+          // Tap anywhere outside the flyout to close
+          onTap: () => Navigator.of(context).pop(),
+          child: Container(
+            color: Colors.transparent,
+            child: GestureDetector(
+              // Prevent taps on the flyout content from closing it
+              onTap: () {},
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Transform.translate(
+                  offset: Offset(-90, -0), // Matched the homepage offset exactly
+                  child: Container(
+                    width: screenSize.width * 0.75,
+                    height: screenSize.height -0, // Matched the homepage height exactly
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3D3D3D),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(0),
+                        bottomLeft: Radius.circular(0),
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(height: 60),
+                        
+                        // Profile icon, name, and email display
+                        Row(
                           children: [
-                            // Updated to use FutureBuilder for username
-                            FutureBuilder<String>(
-                              future: getCurrentUsername(),
-                              builder: (context, snapshot) {
-                                return Text(
-                                  snapshot.data ?? "User", // Display username or "User" as fallback
-                                  style: TextStyle(
-                                    color: Colors.white, 
-                                    fontSize: 20, 
-                                    fontWeight: FontWeight.bold
+                            Icon(Icons.home, size: 50, color: Colors.white),
+                            SizedBox(width: 10),
+                            Expanded( 
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // UPDATED to use FutureBuilder for username
+                                  FutureBuilder<String>(
+                                    future: getCurrentUsername(),
+                                    builder: (context, snapshot) {
+                                      return Text(
+                                        snapshot.data ?? "User", // Display username or "User" as fallback
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      );
+                                    },
                                   ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                );
-                              },
-                            ),
-                            Text(
-                              _auth.currentUser?.email ?? "email@example.com", // Display user email
-                              style: GoogleFonts.inter(color: Colors.white70, fontSize: 14),
-                              overflow: TextOverflow.ellipsis, 
-                              maxLines: 1, 
+                                  Text(
+                                    _auth.currentUser?.email ?? "No email", // Display actual user email
+                                    style: GoogleFonts.inter(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                    ),
+                                    overflow: TextOverflow.ellipsis, 
+                                    maxLines: 1, 
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 40),
-                  ListTile(
-                    leading: const Icon(Icons.person, color: Colors.white, size: 35),
-                    title: Text('Profile', style: GoogleFonts.inter(color: Colors.white)),
-                    onTap: () {
-                    
-                       Navigator.pushNamed(context, '/profile'); // Navigate to profile
-                    }
-                  ),
-                  const SizedBox(height: 15),
-                  ListTile(
-                    leading: const Icon(Icons.notifications, color: Colors.white, size: 35),
-                    title: Text('Notification', style: GoogleFonts.inter(color: Colors.white)),
-                    onTap: () {
-                      
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => NotificationScreen()),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 15),
-                  ListTile(
-                    leading: const Padding(
-                      padding: EdgeInsets.only(left: 5), // Align icon
-                      child: Icon(Icons.logout, color: Colors.white, size: 35),
+
+                        SizedBox(height: 40),
+                        
+                        ListTile(
+                          leading: Icon(Icons.person, color: Colors.white,size: 35,),
+                          title: Text('Profile', style: GoogleFonts.inter( color: Colors.white)),
+                          onTap: () {
+                            Navigator.pop(context); // Close flyout first
+                            Navigator.pushNamed(context, '/profile');
+                          },
+                        ),  
+
+                        SizedBox(height: 15),
+                        ListTile(
+                          leading: Icon(Icons.notifications, color: Colors.white, size: 35,),
+                          title: Text('Notification', style: GoogleFonts.inter(color: Colors.white)),
+                           onTap: () {
+                            Navigator.pop(context); // Close flyout first
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => NotificationScreen()),
+                            );
+                          },
+                        ),  
+
+                        SizedBox(height: 15),
+                          ListTile(
+                        leading: Padding(
+                          padding: EdgeInsets.only(left: 5),
+                          child: Icon(Icons.logout, color: Colors.white, size: 35,),
+                        ),
+                          title: Text('Logout', style: GoogleFonts.inter(color: Colors.white)),
+                         onTap: () async {
+                            Navigator.pop(context); // Close flyout first
+                            await _auth.signOut(); // Actually sign out
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (context) => WelcomeScreen()),
+                              (Route<dynamic> route) => false,
+                            );
+                          },
+                        ),  
+                        ],
                     ),
-                    title: Text('Logout', style: GoogleFonts.inter(color: Colors.white)),
-                    onTap: () async {
-                      await _auth.signOut();
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (context) => WelcomeScreen()),
-                        (Route<dynamic> route) => false,
-                      );
-                    },
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -1035,9 +1050,6 @@ class DeviceCard extends StatelessWidget {
     );
   }
 }
-
-// Helper for FirebaseAuth instance, if not already available via _dbService
-final FirebaseAuth _auth = FirebaseAuth.instance;
 
 IconData _getIconFromCodePoint(int codePoint) {
   final Map<int, IconData> iconMap = {

@@ -9,7 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 // TODO: Replace 'YOUR_API_KEY' with your actual OpenWeatherMap API key
-const String _apiKey = 'YOUR_API_KEY'; // Placeholder for Weather API Key
+const String _apiKey = 'd542f2e03ea5728e77e367f19c0fb675'; // Placeholder for Weather API Key
 const String _cityName = 'Manila'; // Default city for weather
 
 class Rooms extends StatefulWidget {
@@ -173,7 +173,7 @@ class RoomsState extends State<Rooms> {
                   Transform.translate(
                     offset: Offset(0, 20),
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: EdgeInsets.symmetric(horizontal: 31, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.transparent,
                         borderRadius: BorderRadius.circular(20),
@@ -606,107 +606,123 @@ class RoomsState extends State<Rooms> {
     );
   }
 
-  /// Flyout Menu
+  /// Enhanced Flyout Menu with tap-to-exit functionality
   void _showFlyout(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     showModalBottomSheet(
       isScrollControlled: true,
+      isDismissible: false, // Disable sliding down to close
+      enableDrag: false, // Disable drag to dismiss
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: Transform.translate(
-            offset: const Offset(-90, 0),
-            child: Container(
-              width: screenSize.width * 0.75,
-              height: screenSize.height,
-              decoration: const BoxDecoration(
-                color: Color(0xFF3D3D3D),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(0),
-                  bottomLeft: Radius.circular(0),
-                ),
-              ),
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 60),
-                  Row(
-                    children: [
-                      const Icon(Icons.home, size: 50, color: Colors.white),
-                      const SizedBox(width: 10),
-                      Expanded( 
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+        return GestureDetector(
+          // Tap anywhere outside the flyout to close
+          onTap: () => Navigator.of(context).pop(),
+          child: Container(
+            color: Colors.transparent,
+            child: GestureDetector(
+              // Prevent taps on the flyout content from closing it
+              onTap: () {},
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Transform.translate(
+                  offset: const Offset(-90, 0),
+                  child: Container(
+                    width: screenSize.width * 0.75,
+                    height: screenSize.height,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF3D3D3D),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(0),
+                        bottomLeft: Radius.circular(0),
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 60),
+                        Row(
                           children: [
-                            FutureBuilder<String>(
-                              future: getCurrentUsername(),
-                              builder: (context, snapshot) {
-                                return Text(
-                                  snapshot.data ?? "User",
-                                  style: TextStyle(
-                                    color: Colors.white, 
-                                    fontSize: 20, 
-                                    fontWeight: FontWeight.bold
+                            const Icon(Icons.home, size: 50, color: Colors.white),
+                            const SizedBox(width: 10),
+                            Expanded( 
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  FutureBuilder<String>(
+                                    future: getCurrentUsername(),
+                                    builder: (context, snapshot) {
+                                      return Text(
+                                        snapshot.data ?? "User",
+                                        style: TextStyle(
+                                          color: Colors.white, 
+                                          fontSize: 20, 
+                                          fontWeight: FontWeight.bold
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      );
+                                    },
                                   ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                );
-                              },
-                            ),
-                            Text(
-                              FirebaseAuth.instance.currentUser?.email ?? "email@example.com",
-                              style: GoogleFonts.inter(color: Colors.white70, fontSize: 14),
-                              overflow: TextOverflow.ellipsis, 
-                              maxLines: 1, 
+                                  Text(
+                                    FirebaseAuth.instance.currentUser?.email ?? "email@example.com",
+                                    style: GoogleFonts.inter(color: Colors.white70, fontSize: 14),
+                                    overflow: TextOverflow.ellipsis, 
+                                    maxLines: 1, 
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 40),
-                  ListTile(
-                    leading: const Icon(Icons.person, color: Colors.white, size: 35),
-                    title: Text('Profile', style: GoogleFonts.inter(color: Colors.white)),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => ProfileScreen()),
-                      );
-                    },
-                  ),
-                      
-                  const SizedBox(height: 15),
-                  ListTile(
-                    leading: const Icon(Icons.notifications, color: Colors.white, size: 35),
-                    title: Text('Notification', style: GoogleFonts.inter(color: Colors.white)),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => NotificationScreen()),
-                      );
-                    },
-                  ),
+                        const SizedBox(height: 40),
+                        ListTile(
+                          leading: const Icon(Icons.person, color: Colors.white, size: 35),
+                          title: Text('Profile', style: GoogleFonts.inter(color: Colors.white)),
+                          onTap: () {
+                            Navigator.pop(context); // Close flyout first
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => ProfileScreen()),
+                            );
+                          },
+                        ),
+                            
+                        const SizedBox(height: 15),
+                        ListTile(
+                          leading: const Icon(Icons.notifications, color: Colors.white, size: 35),
+                          title: Text('Notification', style: GoogleFonts.inter(color: Colors.white)),
+                          onTap: () {
+                            Navigator.pop(context); // Close flyout first
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => NotificationScreen()),
+                            );
+                          },
+                        ),
 
-                  const SizedBox(height: 15),
-                  ListTile(
-                    leading: const Padding(
-                      padding: EdgeInsets.only(left: 5),
-                      child: Icon(Icons.logout, color: Colors.white, size: 35),
+                        const SizedBox(height: 15),
+                        ListTile(
+                          leading: const Padding(
+                            padding: EdgeInsets.only(left: 5),
+                            child: Icon(Icons.logout, color: Colors.white, size: 35),
+                          ),
+                          title: Text('Logout', style: GoogleFonts.inter(color: Colors.white)),
+                          onTap: () async {
+                            Navigator.pop(context); // Close flyout first
+                            await FirebaseAuth.instance.signOut();
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (context) => WelcomeScreen()),
+                              (Route<dynamic> route) => false,
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                    title: Text('Logout', style: GoogleFonts.inter(color: Colors.white)),
-                     onTap: () async {
-                      await FirebaseAuth.instance.signOut();
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (context) => WelcomeScreen()),
-                        (Route<dynamic> route) => false,
-                      );
-                    },
                   ),
-                ],
+                ),
               ),
             ),
           ),
