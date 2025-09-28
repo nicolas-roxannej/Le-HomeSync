@@ -1522,11 +1522,27 @@ void _addApplianceDialog() {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+           backgroundColor: const Color(0xFFE9E7E6),
           title: Text('Confirm Delete'),
-          content: Text('Are you sure you want to delete "$applianceNameToDelete"?'),
+          titleTextStyle: GoogleFonts.jaldi(
+          fontSize: 23, 
+          fontWeight: FontWeight.bold,
+          color: Colors.black,
+),   
+          content: Text('Are you sure you want to delete "$applianceNameToDelete"?',
+          style:GoogleFonts.inter(
+              color: Colors.black,
+              fontSize: 15,
+              ),   
+          ),
           actions: <Widget>[
             TextButton(
-              child: Text('Cancel'),
+              child: Text('Cancel',
+              style:GoogleFonts.inter(
+              color: Colors.black,
+              fontSize: 15,
+              ),   
+              ),
               onPressed: () {
                 Navigator.of(context).pop(false);
               },

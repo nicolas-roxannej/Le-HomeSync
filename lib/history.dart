@@ -2,41 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class DeviceHistoryScreen extends StatefulWidget {
   @override
   _DeviceHistoryScreenState createState() => _DeviceHistoryScreenState();
 }
-
 class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
   String _selectedDeviceFilter = 'All Devices';
-  String _selectedDateFilter = 'Last 30 Days'; // Updated default
+  String _selectedDateFilter = 'Today';
   TextEditingController _searchController = TextEditingController();
   TextEditingController _yearController = TextEditingController();
   bool _isSearching = false;
   
-  // avoid repeated queries
   Map<String, Map<String, dynamic>> _applianceCache = {};
-
-  final List<String> deviceFilters = [
+  List<String> _userRooms = []; // registered rooms
+  List<String> deviceFilters = [
     'All Devices',
-    'Kitchen Devices',
-    'Bedroom Devices', 
-    'Living Room Devices',
-    'Office Devices',
-    'Garden Devices',
-    'Bathroom Devices',
-    'Laundry Devices'
-  ];
-  
+  ]; 
   // date filters
   final List<String> dateFilters = [
+    'Today',
     'Last 7 Days',
     'Last 30 Days',
     'Months',
     'All Time'
   ];
-
   // Months filter
   List<String> _selectedMonths = [];
   int _selectedYear = DateTime.now().year;
@@ -44,32 +35,59 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
-
   @override
   void dispose() {
     _searchController.dispose();
     _yearController.dispose();
     super.dispose();
   }
-
   @override
   void initState() {
     super.initState();
     _loadApplianceCache();
+    _loadUserRooms(); 
   }
-
+  // user room in Firestore
+  Future<void> _loadUserRooms() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('Rooms')
+          .get();
+      
+      List<String> rooms = ['All Devices']; 
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final roomName = data['roomName'] as String?;
+        if (roomName != null && roomName.isNotEmpty) {
+          rooms.add('$roomName Devices');
+        }
+      }
+      
+      setState(() {
+        _userRooms = snapshot.docs.map((doc) {
+          final data = doc.data();
+          return data['roomName'] as String? ?? '';
+        }).where((name) => name.isNotEmpty).toList();
+        deviceFilters = rooms;
+      });
+    } catch (e) {
+      print('Error loading user rooms: $e');
+    }
+  }
   // all user appliances collection 
   Future<void> _loadApplianceCache() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('appliances')
           .get();
-      
       for (var doc in snapshot.docs) {
         _applianceCache[doc.id] = doc.data();
       }
@@ -78,7 +96,6 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
       print('Error loading appliance cache: $e');
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,8 +115,8 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
             )
           : Text(
               'Device History',
-              style: TextStyle(
-                fontSize: 20,
+              style: GoogleFonts.jaldi(
+                fontSize: 25,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
@@ -109,17 +126,11 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
         elevation: 1,
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
+          iconSize: 45,
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           if (_isSearching) ...[
-            IconButton(
-              icon: Icon(Icons.clear),
-              onPressed: () {
-                _searchController.clear();
-                setState(() {});
-              },
-            ),
             IconButton(
               icon: Icon(Icons.close),
               onPressed: () {
@@ -127,6 +138,15 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
                   _isSearching = false;
                   _searchController.clear();
                 });
+              },
+            ),
+            IconButton(
+              icon: Icon(Icons.refresh),
+              onPressed: () {
+                _loadApplianceCache();
+                _loadUserRooms();
+                setState(() {});
+                _showSuccessSnackbar('Data refreshed');
               },
             ),
           ] else ...[
@@ -142,6 +162,7 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
               icon: Icon(Icons.refresh),
               onPressed: () {
                 _loadApplianceCache();
+                _loadUserRooms(); 
                 setState(() {});
                 _showSuccessSnackbar('Data refreshed');
               },
@@ -166,19 +187,27 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
                             return _buildStatCard('Active Devices', '...', Icons.timeline, Colors.blue);
                           }
                           final appliances = snapshot.data!.docs;
-                          final filteredAppliances = _applyApplianceFilters(appliances);
-                          
-                          // active device count
-                          int activeDevices = filteredAppliances.where((doc) {
-                            final data = doc.data() as Map<String, dynamic>;
-                            final status = data['applianceStatus'] ?? 'OFF';
-                            return status.toLowerCase() == 'on';
-                          }).length;
-                          return _buildStatCard(
-                            'Active Devices',
-                            activeDevices.toString(),
-                            Icons.timeline,
-                            Colors.blue,
+                          return FutureBuilder<List<QueryDocumentSnapshot>>(
+                            future: _applyApplianceFiltersAsync(appliances),
+                            builder: (context, filteredSnapshot) {
+                              if (!filteredSnapshot.hasData) {
+                                return _buildStatCard('Active Devices', '...', Icons.timeline, Colors.blue);
+                              }
+                              final filteredAppliances = filteredSnapshot.data!;
+                              
+                              // active device count
+                              int activeDevices = filteredAppliances.where((doc) {
+                                final data = doc.data() as Map<String, dynamic>;
+                                final status = data['applianceStatus'] ?? 'OFF';
+                                return status.toLowerCase() == 'on';
+                              }).length;
+                              return _buildStatCard(
+                                'Active Devices',
+                                activeDevices.toString(),
+                                Icons.timeline,
+                                Colors.blue,
+                              );
+                            },
                           );
                         },
                       ),
@@ -246,11 +275,11 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                              Icon(Icons.calendar_month, size: 16, color: Colors.grey[600]),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  _selectedDateFilter, 
+                                  _getDateRangeDisplay(), 
                                   style: TextStyle(color: Colors.grey[600]),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -321,15 +350,29 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
                 if (!applianceSnapshot.hasData || applianceSnapshot.data!.docs.isEmpty) {
                   return _buildEmptyState();
                 }
+                
                 final appliances = applianceSnapshot.data!.docs;
-                final filteredAppliances = _applyApplianceFilters(appliances);
-                if (filteredAppliances.isEmpty) {
-                  return _buildNoResultsState();
-                }
-                return ListView.separated(
-                  itemCount: filteredAppliances.length,
-                  separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey[200]),
-                  itemBuilder: (context, index) => _buildDeviceRow(filteredAppliances[index]),
+                
+                return FutureBuilder<List<QueryDocumentSnapshot>>(
+                  future: _applyApplianceFiltersAsync(appliances),
+                  builder: (context, filteredSnapshot) {
+                    if (filteredSnapshot.connectionState == ConnectionState.waiting) {
+                      return _buildLoadingState();
+                    }
+                    if (filteredSnapshot.hasError) {
+                      return _buildErrorState(filteredSnapshot.error.toString());
+                    }
+                    if (!filteredSnapshot.hasData || filteredSnapshot.data!.isEmpty) {
+                      return _buildNoResultsState();
+                    }
+                    
+                    final filteredAppliances = filteredSnapshot.data!;
+                    return ListView.separated(
+                      itemCount: filteredAppliances.length,
+                      separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey[200]),
+                      itemBuilder: (context, index) => _buildDeviceRow(filteredAppliances[index]),
+                    );
+                  },
                 );
               },
             ),
@@ -338,6 +381,7 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
       ),
     );
   }
+
   // get all appliance
   Stream<QuerySnapshot> _getAppliancesStream() {
     final user = FirebaseAuth.instance.currentUser;
@@ -350,40 +394,108 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
         .collection('appliances')
         .snapshots();
   }
-
-// usage hierarchy 
-  Stream<QuerySnapshot> _getUsageHistoryStream() {
+  Future<List<QueryDocumentSnapshot>> _applyApplianceFiltersAsync(List<QueryDocumentSnapshot> docs) async {
+    List<QueryDocumentSnapshot> filtered = docs;
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return Stream.empty();
+    if (user == null) return [];
+    // user's registered rooms filter
+    if (_selectedDeviceFilter != 'All Devices') {
+      String targetRoom = _selectedDeviceFilter.replaceAll(' Devices', '');
+      filtered = filtered.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        final roomName = data['roomName'] ?? '';
+        return roomName.toLowerCase() == targetRoom.toLowerCase();
+      }).toList();
     }
-    return FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('appliances')
-        .snapshots();
+    // Apply search filter
+    if (_searchController.text.isNotEmpty) {
+      String searchTerm = _searchController.text.toLowerCase();
+      filtered = filtered.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        final deviceName = (data['applianceName'] ?? '').toString().toLowerCase();
+        final roomName = (data['roomName'] ?? '').toString().toLowerCase();
+        final deviceType = (data['deviceType'] ?? '').toString().toLowerCase();
+        return deviceName.contains(searchTerm) || 
+               roomName.contains(searchTerm) || 
+               deviceType.contains(searchTerm);
+      }).toList();
+    }
+    
+    // show actual usage data for selected period of appliance
+    if (_selectedDateFilter == 'Months' && (_selectedMonths.isNotEmpty || _selectedYear != DateTime.now().year)) {
+      List<QueryDocumentSnapshot> devicesWithData = [];
+      for (var doc in filtered) {
+        bool hasData = await _hasUsageDataForSelectedPeriod(user.uid, doc.id);
+        if (hasData) {
+          devicesWithData.add(doc);
+        }
+      }
+      filtered = devicesWithData;
+    } else if (_selectedDateFilter != 'All Time' && _selectedDateFilter != 'Months') {
+      List<QueryDocumentSnapshot> devicesWithData = [];
+      for (var doc in filtered) {
+        final usageData = await _getApplianceUsageData(user.uid, doc.id);
+        final totalUsage = usageData['kwh'] ?? 0.0;
+        if (totalUsage > 0 || usageData['lastActivity'] != null && usageData['lastActivity']! > 0) {
+          devicesWithData.add(doc);
+        }
+      }
+      filtered = devicesWithData;
+    }
+    return filtered;
+  }
+  Future<bool> _hasUsageDataForSelectedPeriod(String userId, String applianceId) async {
+    try {
+      List<int> monthsToCheck = [];
+      if (_selectedMonths.isNotEmpty) {
+        monthsToCheck = _selectedMonths.map((monthName) => months.indexOf(monthName) + 1).toList();
+      } else {
+        monthsToCheck = List.generate(12, (index) => index + 1);
+      }
+      for (int month in monthsToCheck) {
+        String monthName = _getMonthName(month);
+        String monthPath = 'users/$userId/appliances/$applianceId/yearly_usage/$_selectedYear/monthly_usage/${monthName}_usage';
+        try {
+          DocumentSnapshot monthDoc = await FirebaseFirestore.instance.doc(monthPath).get();
+          if (monthDoc.exists && monthDoc.data() != null) {
+            final monthData = monthDoc.data() as Map<String, dynamic>;
+            final monthKwh = (monthData['kwh'] as num?)?.toDouble() ?? 0.0;
+            if (monthKwh > 0) {
+              return true; 
+            }
+          }
+        } catch (e) {   
+        }
+      } 
+      return false; 
+    } catch (e) {
+      print('Error checking usage data for selected period: $e');
+      return false;
+    }
   }
   Future<Map<String, double>> _getApplianceUsageData(String userId, String applianceId) async {
     double totalKwh = 0.0;
     double totalCost = 0.0;
     DateTime? lastActivity;
     final now = DateTime.now();
-    
     try {
-      if (_selectedDateFilter == 'All Time') {
-        // yearly 
+      if (_selectedDateFilter == 'Today') {
+        // tiday data
+        totalKwh = await _getTodayUsage(userId, applianceId);
+      } else if (_selectedDateFilter == 'All Time') {
+        // yearly data
         totalKwh = await _getAllTimeYearlyUsage(userId, applianceId);
       } else if (_selectedDateFilter == 'Months') {
-        // monthly data for selected year 
+        // monthly data - only selected data
         totalKwh = await _getSelectedYearMonthlyUsage(userId, applianceId);
       } else if (_selectedDateFilter == 'Last 30 Days') {
-        // daily data for last 30 days
+        //  data for last 30 days
         totalKwh = await _getDailyUsageInRange(userId, applianceId, 30);
       } else if (_selectedDateFilter == 'Last 7 Days') {
-        // daily data for last 7 days
+        // data for last 7 days
         totalKwh = await _getDailyUsageInRange(userId, applianceId, 7);
       }
-      // Get last activity
+      // last activity
       lastActivity = await _getLastActivity(userId, applianceId);
     } catch (e) {
       print('Error fetching usage data for $applianceId: $e');
@@ -393,6 +505,11 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
       'cost': totalCost,
       'lastActivity': lastActivity?.millisecondsSinceEpoch.toDouble() ?? 0.0,
     };
+  }
+  // Get today's usage data
+  Future<double> _getTodayUsage(String userId, String applianceId) async {
+    final today = DateTime.now();
+    return await _getDayUsage(userId, applianceId, today);
   }
   //all time usage data 
   Future<double> _getAllTimeYearlyUsage(String userId, String applianceId) async {
@@ -404,36 +521,52 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
     }
     return totalKwh;
   }
-  // selected year's monthly usage
   Future<double> _getSelectedYearMonthlyUsage(String userId, String applianceId) async {
     double totalKwh = 0.0;
     try {
-      final yearPath = 'users/$userId/appliances/$applianceId/yearly_usage/$_selectedYear';
-      // specific months or all, 
+      // the only validated year here is 2020 - to more years
+      if (_selectedYear < 2020 || _selectedYear > DateTime.now().year + 1) {
+        print('Invalid year selected: $_selectedYear');
+        return 0.0;
+      }
       List<int> monthsToCheck = [];
       if (_selectedMonths.isNotEmpty) {
         monthsToCheck = _selectedMonths.map((monthName) => months.indexOf(monthName) + 1).toList();
       } else {
-        // all months for that year
         monthsToCheck = List.generate(12, (index) => index + 1);
       }
+      print('Checking months: $monthsToCheck for year: $_selectedYear');
+      bool foundAnyData = false;
       for (int month in monthsToCheck) {
         String monthName = _getMonthName(month);
-        String monthPath = '$yearPath/monthly_usage/${monthName}_usage';
+        String monthPath = 'users/$userId/appliances/$applianceId/yearly_usage/$_selectedYear/monthly_usage/${monthName}_usage';
         try {
           DocumentSnapshot monthDoc = await FirebaseFirestore.instance.doc(monthPath).get();
           if (monthDoc.exists && monthDoc.data() != null) {
             final monthData = monthDoc.data() as Map<String, dynamic>;
-            totalKwh += (monthData['kwh'] as num?)?.toDouble() ?? 0.0;
+            final monthKwh = (monthData['kwh'] as num?)?.toDouble() ?? 0.0;
+            if (monthKwh > 0) {
+              totalKwh += monthKwh;
+              foundAnyData = true;
+              print('Month $monthName: ${monthKwh} kWh');
+            }
+          } else {
+            print('No data found for month: $monthName');
           }
         } catch (e) {
+          print('Error fetching month $monthName: $e');
         }
       }
+      if (!foundAnyData) {
+        print('No usage data found for selected year/months');
+      }
+      print('Total kWh for selected year/months: $totalKwh');
     } catch (e) {
       print('Error fetching selected year monthly usage: $e');
     }
     return totalKwh;
   }
+
   // usage for a specific year
   Future<double> _getYearUsage(String userId, String applianceId, int year) async {
     double totalKwh = 0.0;
@@ -470,10 +603,9 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
   // usage specific day
   Future<double> _getDayUsage(String userId, String applianceId, DateTime date) async {
     double totalKwh = 0.0;
-    
     try {
       String monthName = _getMonthName(date.month);
-      int weekNumber = ((date.day - 1) ~/ 7) + 1; // week count
+      int weekNumber = ((date.day - 1) ~/ 7) + 1; 
       String dayPath = 'users/$userId/appliances/$applianceId/yearly_usage/${date.year}/monthly_usage/${monthName}_usage/week_usage/week${weekNumber}_usage/day_usage/${DateFormat('yyyy-MM-dd').format(date)}';
       
       DocumentSnapshot dayDoc = await FirebaseFirestore.instance.doc(dayPath).get();
@@ -482,47 +614,71 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
         totalKwh = (dayData['kwh'] as num?)?.toDouble() ?? 0.0;
       }
     } catch (e) {
-      // error day
     }
     return totalKwh;
   }
-  // last activity time appliance
+// real time last act
   Future<DateTime?> _getLastActivity(String userId, String applianceId) async {
     DateTime? lastActivity;
-    final now = DateTime.now();
     try {
-      // recent months activity
-      for (int monthOffset = 0; monthOffset < 6; monthOffset++) {
-        final checkDate = DateTime(now.year, now.month - monthOffset, 1);
-        if (checkDate.year < 2020) break;
-        
-        String monthName = _getMonthName(checkDate.month);
-        String monthPath = 'users/$userId/appliances/$applianceId/yearly_usage/${checkDate.year}/monthly_usage/${monthName}_usage';
-        
-        // weekly data
-        for (int week = 1; week <= 5; week++) {
-          String weekPath = '$monthPath/week_usage/week${week}_usage';
-          
+      DocumentSnapshot applianceDoc = await FirebaseFirestore.instance
+          .doc('users/$userId/appliances/$applianceId')
+          .get();
+      if (applianceDoc.exists) {
+        final data = applianceDoc.data() as Map<String, dynamic>;
+        final lastStatusChange = data['lastStatusChange'] as Timestamp?;
+        final lastUpdated = data['lastUpdated'] as Timestamp?;
+        final updatedAt = data['updatedAt'] as Timestamp?;
+        final createdAt = data['createdAt'] as Timestamp?; 
+        final currentStatus = data['applianceStatus'] ?? 'OFF';
+        List<DateTime?> timestamps = [
+          lastStatusChange?.toDate(),
+          lastUpdated?.toDate(),
+          updatedAt?.toDate(),
+          createdAt?.toDate(), 
+        ];
+        for (DateTime? timestamp in timestamps) {
+          if (timestamp != null) {
+            if (lastActivity == null || timestamp.isAfter(lastActivity)) {
+              lastActivity = timestamp;
+            }
+          }
+        }
+        if (lastActivity == null && createdAt != null) {
+          lastActivity = createdAt.toDate();
+        }
+        // recent activity na pag guma na yung device
+        if (currentStatus.toLowerCase() == 'on' && lastActivity != null) {
+          final now = DateTime.now();
+          final timeDiff = now.difference(lastActivity).inMinutes;
+          if (timeDiff <= 5) {
+            lastActivity = now;
+          }
+        }
+        if (createdAt != null) {
+          final now = DateTime.now();
+          final timeSinceCreation = now.difference(createdAt.toDate()).inHours;
+          if (timeSinceCreation <= 1 && lastActivity == null) {
+            lastActivity = createdAt.toDate();
+          }
+        }
+      }
+      if (lastActivity == null) {
+        final now = DateTime.now();
+        for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
+          final checkDate = now.subtract(Duration(days: dayOffset));
+          String monthName = _getMonthName(checkDate.month);
+          int weekNumber = ((checkDate.day - 1) ~/ 7) + 1;
+          String dayPath = 'users/$userId/appliances/$applianceId/yearly_usage/${checkDate.year}/monthly_usage/${monthName}_usage/week_usage/week${weekNumber}_usage/day_usage/${DateFormat('yyyy-MM-dd').format(checkDate)}';
           try {
-            // Check week document that exists
-            DocumentSnapshot weekDoc = await FirebaseFirestore.instance.doc(weekPath).get();
-            if (weekDoc.exists) {
-              // Check daily data in todays week
-              for (int day = 1; day <= 31; day++) {
-                DateTime checkDayDate = DateTime(checkDate.year, checkDate.month, day);
-                if (checkDayDate.month == checkDate.month) {
-                  String dayPath = '$weekPath/day_usage/${DateFormat('yyyy-MM-dd').format(checkDayDate)}';
-                  
-                  try {
-                    DocumentSnapshot dayDoc = await FirebaseFirestore.instance.doc(dayPath).get();
-                    if (dayDoc.exists && dayDoc.data() != null) {
-                      if (lastActivity == null || checkDayDate.isAfter(lastActivity)) {
-                        lastActivity = checkDayDate;
-                      }
-                    }
-                  } catch (e) {
-                  }
-                }
+            DocumentSnapshot dayDoc = await FirebaseFirestore.instance.doc(dayPath).get();
+            if (dayDoc.exists && dayDoc.data() != null) {
+              final dayData = dayDoc.data() as Map<String, dynamic>;
+              final kwh = (dayData['kwh'] as num?)?.toDouble() ?? 0.0;
+              
+              if (kwh > 0) {
+                lastActivity = checkDate;
+                break;
               }
             }
           } catch (e) {
@@ -530,37 +686,9 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
         }
       }
     } catch (e) {
-      print('Error getting last activity for $applianceId: $e');
+      print('Error getting real-time last activity for $applianceId: $e');
     }
     return lastActivity;
-  }
-  // get date range on filter
-  DateTimeRange? _getDateRange() {
-    DateTime now = DateTime.now();
-    switch (_selectedDateFilter) {
-      case 'Last 7 Days':
-        return DateTimeRange(
-          start: now.subtract(Duration(days: 7)),
-          end: now,
-        );
-      case 'Last 30 Days':
-        return DateTimeRange(
-          start: now.subtract(Duration(days: 30)),
-          end: now,
-        );
-      case 'Last 12 Months':
-        return DateTimeRange(
-          start: DateTime(now.year - 1, now.month, now.day),
-          end: now,
-        );
-      case 'This Year':
-        return DateTimeRange(
-          start: DateTime(now.year, 1, 1),
-          end: now,
-        );
-      default:
-        return null;
-    }
   }
   String _getMonthName(int month) {
     const monthNames = ['', 'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
@@ -828,74 +956,7 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
       ),
     );
   }
-  List<QueryDocumentSnapshot> _applyApplianceFilters(List<QueryDocumentSnapshot> docs) {
-    List<QueryDocumentSnapshot> filtered = docs;
-    if (_selectedDeviceFilter != 'All Devices') {
-      String targetRoom = _selectedDeviceFilter.replaceAll(' Devices', '');
-      filtered = filtered.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        final roomName = data['roomName'] ?? '';
-        return roomName.toLowerCase().contains(targetRoom.toLowerCase());
-      }).toList();
-    }
-    if (_searchController.text.isNotEmpty) {
-      String searchTerm = _searchController.text.toLowerCase();
-      filtered = filtered.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        final deviceName = (data['applianceName'] ?? '').toString().toLowerCase();
-        final roomName = (data['roomName'] ?? '').toString().toLowerCase();
-        final deviceType = (data['deviceType'] ?? '').toString().toLowerCase();
-        
-        return deviceName.contains(searchTerm) || 
-               roomName.contains(searchTerm) || 
-               deviceType.contains(searchTerm);
-      }).toList();
-    }
-    
-    return filtered;
-  }
-  List<QueryDocumentSnapshot> _applyClientSideFilters(List<QueryDocumentSnapshot> docs) {
-    List<QueryDocumentSnapshot> filtered = docs;
-    if (_selectedDeviceFilter != 'All Devices') {
-      String targetRoom = _selectedDeviceFilter.replaceAll(' Devices', '');
-      filtered = filtered.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        final applianceId = data['applianceId'] as String?;
-        final applianceData = _applianceCache[applianceId];
-        final roomName = applianceData?['roomName'] ?? '';
-        return roomName.toLowerCase().contains(targetRoom.toLowerCase());
-      }).toList();
-    }
-    if (_searchController.text.isNotEmpty) {
-      String searchTerm = _searchController.text.toLowerCase();
-      filtered = filtered.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        final applianceId = data['applianceId'] as String?;
-        final applianceData = _applianceCache[applianceId];
-        final deviceName = (applianceData?['applianceName'] ?? '').toString().toLowerCase();
-        final roomName = (applianceData?['roomName'] ?? '').toString().toLowerCase();
-        return deviceName.contains(searchTerm) || roomName.contains(searchTerm);
-      }).toList();
-    }
-    return filtered;
-  }
-  DateTime? _getFilterDate() {
-    DateTime now = DateTime.now();
-    switch (_selectedDateFilter) {
-      case 'Last 7 Days':
-        return now.subtract(Duration(days: 7));
-      case 'Last 30 Days':
-        return now.subtract(Duration(days: 30));
-      case 'Months':
-        return DateTime(_selectedYear, 1, 1);
-      default:
-        return null;
-    }
-  }
-  double _calculateTotalPower(List<QueryDocumentSnapshot> docs) {
-    return 0.0; 
-  }
-  //calculate total power from all appliances with date filtering
+  //calculate the total power from all appliances with date filtering
   Future<double> _calculateTotalPowerFromHierarchy() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return 0.0;
@@ -906,7 +967,9 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
           .doc(user.uid)
           .collection('appliances')
           .get();
-      for (var applianceDoc in appliancesSnapshot.docs) {
+      List<QueryDocumentSnapshot> filteredAppliances = await _applyApplianceFiltersAsync(appliancesSnapshot.docs);
+      
+      for (var applianceDoc in filteredAppliances) {
         final usageData = await _getApplianceUsageData(user.uid, applianceDoc.id);
         totalPower += usageData['kwh'] ?? 0.0;
       }
@@ -915,17 +978,21 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
     }
     return totalPower;
   }
+
   String _formatDate(dynamic timestamp) {
     if (timestamp == null) return 'N/A';
     DateTime date = (timestamp as Timestamp).toDate();
     return '${date.day}/${date.month}/${date.year}';
   }
+
   String _formatTime(dynamic timestamp) {
     if (timestamp == null) return 'N/A';
     DateTime date = (timestamp as Timestamp).toDate();
     return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
-  String _formatLastActivity(DateTime activityTime) {
+  String _formatLastActivity(DateTime? activityTime) {
+    if (activityTime == null) return 'Never';
+    
     final now = DateTime.now();
     final difference = now.difference(activityTime);
 
@@ -954,7 +1021,13 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Filter by Device/Room'),
+          backgroundColor: const Color(0xFFE9E7E6),
+          title: Text('Filter by Room'),
+          titleTextStyle: GoogleFonts.jaldi(
+          fontSize: 23, 
+          fontWeight: FontWeight.bold,
+          color: Colors.black,
+),            
           content: Container(
             width: double.maxFinite,
             child: ListView(
@@ -963,7 +1036,7 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
                 return ListTile(
                   leading: Icon(
                     _selectedDeviceFilter == filter ? Icons.check_circle : Icons.circle_outlined,
-                    color: _selectedDeviceFilter == filter ? Colors.blue : Colors.grey,
+                    color: _selectedDeviceFilter == filter ? Colors.black : Colors.grey,
                   ),
                   title: Text(filter),
                   onTap: () {
@@ -979,7 +1052,12 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
+              child: Text('Cancel',
+              style:GoogleFonts.inter(
+              color: Colors.black,
+              fontSize: 15,
+              ),
+            ),
             ),
           ],
         );
@@ -992,7 +1070,13 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Filter by Date Range'),
+          backgroundColor: const Color(0xFFE9E7E6),
+          title: Text('Date Filter'),
+          titleTextStyle: GoogleFonts.jaldi(
+          fontSize: 23, 
+          fontWeight: FontWeight.bold,
+          color: Colors.black,
+),            
           content: Container(
             width: double.maxFinite,
             child: ListView(
@@ -1001,12 +1085,12 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
                 return ListTile(
                   leading: Icon(
                     _selectedDateFilter == filter ? Icons.check_circle : Icons.circle_outlined,
-                    color: _selectedDateFilter == filter ? Colors.blue : Colors.grey,
+                    color: _selectedDateFilter == filter ? Colors.black : Colors.grey,
                   ),
                   title: Text(filter),
                   trailing: filter == 'Months' 
                     ? IconButton(
-                        icon: Icon(Icons.settings, size: 20, color: Colors.blue),
+                        icon: Icon(Icons.settings, size: 20, color: Colors.black),
                         onPressed: () {
                           Navigator.of(context).pop();
                           _showMonthYearSelectionDialog();
@@ -1017,7 +1101,7 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
                     setState(() {
                       _selectedDateFilter = filter;
                       if (filter != 'Months') {
-                        _selectedMonths.clear(); // Clear month selection for other filters
+                        _selectedMonths.clear(); 
                       }
                     });
                     Navigator.of(context).pop();
@@ -1029,22 +1113,29 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
+              child: Text('Cancel',
+              style:GoogleFonts.inter(
+              color: Colors.black,
+              fontSize: 15,
+              ),
+              ),
             ),
           ],
         );
       },
     );
   }
+
   void _showMonthYearSelectionDialog() {
-    //current selected year
     _yearController.text = _selectedYear.toString();
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return Dialog(
+              backgroundColor: const Color(0xFFE9E7E6),
               child: Container(
                 width: MediaQuery.of(context).size.width * 0.9,
                 height: MediaQuery.of(context).size.height * 0.7,
@@ -1053,19 +1144,30 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
                   children: [
                     Text(
                       'Select Year and Months',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.jaldi(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
                     ),
                     SizedBox(height: 16),
-                    // Year enter
+                    // Year input
                     TextField(
                       controller: _yearController,
                       keyboardType: TextInputType.number,
+                      style: GoogleFonts.inter(fontSize: 16),
                       decoration: InputDecoration(
                         labelText: 'Year',
+                        labelStyle: GoogleFonts.inter(),
                         hintText: 'Enter year (e.g., 2024)',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.calendar_today),
+                        hintStyle: GoogleFonts.inter(color: Colors.grey),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: Icon(Icons.calendar_month),
                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        filled: true,
+                        fillColor: Colors.white,
                       ),
                       onChanged: (value) {
                         final year = int.tryParse(value);
@@ -1078,32 +1180,47 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
                     ),
                     SizedBox(height: 16),
                     // Month selection 
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextButton(
-                            onPressed: () {
-                              setDialogState(() {
-                                _selectedMonths.clear();
-                              });
-                            },
-                            child: Text('Clear All', style: TextStyle(fontSize: 12)),
+                    Container(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () {
+                                setDialogState(() {
+                                  _selectedMonths.clear();
+                                });
+                              },
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.grey[200],
+                                foregroundColor: Colors.black,
+                              ),
+                              child: Text('Clear All', 
+                                style: GoogleFonts.inter(fontSize: 12)),
+                            ),
                           ),
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: TextButton(
-                            onPressed: () {
-                              setDialogState(() {
-                                _selectedMonths = List.from(months);
-                              });
-                            },
-                            child: Text('Select All', style: TextStyle(fontSize: 12)),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () {
+                                setDialogState(() {
+                                  _selectedMonths = List.from(months);
+                                });
+                              },
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: Text('Select All', 
+                                style: GoogleFonts.inter(fontSize: 12)),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    Divider(),
+                    
+                    Divider(color: Colors.grey),
+                    
                     // Month checkbox
                     Expanded(
                       child: ListView.builder(
@@ -1111,33 +1228,55 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
                         itemBuilder: (context, index) {
                           final month = months[index];
                           final isSelected = _selectedMonths.contains(month);
-                          return CheckboxListTile(
-                            title: Text(month, style: TextStyle(fontSize: 14)),
-                            value: isSelected,
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            onChanged: (bool? value) {
-                              setDialogState(() {
-                                if (value == true) {
-                                  _selectedMonths.add(month);
-                                } else {
-                                  _selectedMonths.remove(month);
-                                }
-                              });
-                            },
+                          return Container(
+                            margin: EdgeInsets.symmetric(vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.black.withOpacity(0.1) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: CheckboxListTile(
+                              title: Text(
+                                month, 
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                ),
+                              ),
+                              value: isSelected,
+                              dense: true,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                              activeColor: Colors.black,
+                              checkColor: Colors.white,
+                              onChanged: (bool? value) {
+                                setDialogState(() {
+                                  if (value == true) {
+                                    if (!_selectedMonths.contains(month)) {
+                                      _selectedMonths.add(month);
+                                    }
+                                  } else {
+                                    _selectedMonths.remove(month);
+                                  }
+                                });
+                              },
+                            ),
                           );
                         },
                       ),
                     ),
+                    
+                    SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(),
-                          child: Text('Cancel'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.grey[600],
+                          ),
+                          child: Text('Cancel', style: GoogleFonts.inter()),
                         ),
                         SizedBox(width: 8),
-                        TextButton(
+                        ElevatedButton(
                           onPressed: () {
                             final year = int.tryParse(_yearController.text);
                             if (year == null || year < 2020 || year > DateTime.now().year + 1) {
@@ -1153,9 +1292,14 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
                               _selectedDateFilter = 'Months';
                               _selectedYear = year;
                             });
+                            
                             Navigator.of(context).pop();
                           },
-                          child: Text('Apply'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: Text('Apply', style: GoogleFonts.inter()),
                         ),
                       ],
                     ),
@@ -1168,7 +1312,6 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
       },
     );
   }
-  // date range selected months and year
   String _getDateRangeDisplay() {
     if (_selectedDateFilter == 'Months') {
       String yearDisplay = '$_selectedYear';
@@ -1176,9 +1319,10 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
         if (_selectedMonths.length == 12) {
           return '$yearDisplay (All Months)';
         } else if (_selectedMonths.length <= 3) {
-          return '$yearDisplay (${_selectedMonths.join(', ')})';
+          String monthsDisplay = _selectedMonths.map((month) => month.substring(0, 3)).join(', ');
+          return '$yearDisplay ($monthsDisplay)';
         } else {
-          return '$yearDisplay (${_selectedMonths.length} months selected)';
+          return '$yearDisplay (${_selectedMonths.length} months)';
         }
       } else {
         return '$yearDisplay (All Months)';
@@ -1198,7 +1342,14 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: const Color(0xFFE9E7E6),
           title: Text('Device Details'),
+          titleTextStyle: GoogleFonts.jaldi(
+          fontSize: 23, 
+          fontWeight: FontWeight.bold,
+          color: Colors.black,
+),   
+
           content: FutureBuilder<Map<String, double>>(
             future: _getApplianceUsageData(FirebaseAuth.instance.currentUser!.uid, applianceId),
             builder: (context, usageSnapshot) {
@@ -1239,7 +1390,12 @@ class _DeviceHistoryScreenState extends State<DeviceHistoryScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Close'),
+              child: Text('Close',
+              style:GoogleFonts.inter(
+              color: Colors.black,
+              fontSize: 15,
+              ), 
+              ),
             ),
           ],
         );
