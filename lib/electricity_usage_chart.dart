@@ -14,8 +14,7 @@ class ChartDataPoint {
 }
 
 class ElectricityUsageChart extends StatefulWidget {
-  final String selectedPeriod; // "Daily", "Weekly", "Monthly", "Yearly"
-  // final String userId; // Passed from homepage
+  final String selectedPeriod; 
 
   const ElectricityUsageChart({
     super.key, 
@@ -31,11 +30,17 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
   bool _isLoading = true;
   String _displayMode = 'kWh'; // 'kWh' or 'cost'
   List<ChartDataPoint> _chartDataPoints = [];
-  double _maxY = 10.0; // Default, will adjust
+  double _maxY = 10.0;
   String _chartTitle = '';
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  final List<Color> _barColors = [
+    const Color.fromARGB(255, 150, 204, 229),  
+    Colors.black,               
+    const Color.fromARGB(255, 248, 198, 133), 
+  ];
 
   @override
   void initState() {
@@ -51,7 +56,7 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
     }
   }
 
-  // Helper to get month name, week of month (can be moved to a utility file)
+  // to get month name, week of month 
   String _getMonthName(int month) {
     const monthNames = ['', 'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
     return monthNames[month].toLowerCase();
@@ -74,7 +79,7 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
-      _chartDataPoints = []; // Clear previous data
+      _chartDataPoints = []; 
     });
 
     final User? user = _auth.currentUser;
@@ -94,7 +99,7 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
     try {
       switch (widget.selectedPeriod) {
         case 'Daily': // Shows last 7 days (Sun-Sat of current week)
-          _chartTitle = 'Daily Usage (Current Week)';
+          _chartTitle = 'Daily Usage (${DateFormat('MMMM dd').format(now)})';
           DateTime firstDayOfWeek = now.subtract(Duration(days: now.weekday % 7)); // Assuming Sunday is 0 or 7
           if (now.weekday == DateTime.sunday) { // Dart's Sunday is 7
              firstDayOfWeek = now.subtract(Duration(days: 6)); // Adjust if Sunday is start
@@ -105,11 +110,9 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
 
           for (int i = 0; i < 7; i++) {
             DateTime dayToFetch = firstDayOfWeek.add(Duration(days: i));
-            String dayLabel = DateFormat('EEE').format(dayToFetch); // Mon, Tue
+            String dayLabel = DateFormat('EEE').format(dayToFetch); 
             double dailyTotalKwh = 0;
             double dailyTotalCost = 0;
-
-            // Parallel fetch for all appliances for this specific day
             List<Future<DocumentSnapshot>> applianceDayFutures = applianceIds.map((applianceId) {
               String path = 'users/$userId/appliances/$applianceId/yearly_usage/${dayToFetch.year}/monthly_usage/${_getMonthName(dayToFetch.month)}_usage/week_usage/week${_getWeekOfMonth(dayToFetch)}_usage/day_usage/${DateFormat('yyyy-MM-dd').format(dayToFetch)}';
               return _firestore.doc(path).get();
@@ -128,8 +131,8 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
           }
           break;
 
-        case 'Weekly': // Shows weeks of current month
-          _chartTitle = 'Weekly Usage (Current Month)';
+        case 'Weekly': 
+          _chartTitle = 'Weekly Usage (${DateFormat('MMMM yyyy').format(now)})';
           int year = now.year;
           int month = now.month;
           // Calculate number of weeks in the month (approx 4 or 5)
@@ -173,7 +176,7 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
 
         case 'Monthly': // Shows months of current year
         case 'Yearly': // For now, Yearly will also show monthly breakdown of current year
-          _chartTitle = widget.selectedPeriod == 'Yearly' ? 'Monthly Usage (${now.year})' : 'Monthly Usage (Current Year)';
+          _chartTitle = widget.selectedPeriod == 'Yearly' ? 'Monthly Usage (${now.year})' : 'Monthly Usage (${now.year})';
           for (int monthNum = 1; monthNum <= 12; monthNum++) {
             String monthLabel = DateFormat('MMM').format(DateTime(now.year, monthNum));
             double monthlyTotalKwh = 0;
@@ -196,7 +199,6 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
             }
             newPoints.add(ChartDataPoint(xIndex: monthNum - 1, xLabel: monthLabel, kwh: monthlyTotalKwh, cost: monthlyTotalCost));
             }
-          // Removed extra closing brace here
           break;
       }
     } catch (e) {
@@ -224,21 +226,22 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
         maxVal = currentVal;
       }
     }
-    _maxY = maxVal == 0 ? 10 : (maxVal * 1.2); // Add some padding
+    _maxY = maxVal == 0 ? 10 : (maxVal * 1.2); 
   }
 
   BarChartGroupData _generateBarGroup(int x, double value) {
+    Color barColor = _barColors[x % _barColors.length];
+    
     return BarChartGroupData(
       x: x,
       barRods: [
         BarChartRodData(
           toY: value,
-          color: Theme.of(context).colorScheme.primary,
+          color: barColor, // Use alternating colors
           width: 15,
           borderRadius: BorderRadius.circular(4),
         ),
       ],
-      // Removed showingTooltipIndicators to make tooltips appear on touch
     );
   }
 
@@ -299,7 +302,10 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
               _updateMaxY(); // Update maxY based on new display mode
             });
           },
-          child: Text(_displayMode == 'kWh' ? 'Show Estimated Cost' : 'Show kWh Usage'),
+          style: ElevatedButton.styleFrom(
+            foregroundColor: Colors.black, 
+          ),
+          child: Text(_displayMode == 'kWh' ? 'Show kWh Usage' : 'Show Estimated Cost'),
         ),
         const SizedBox(height: 16),
         Expanded(
@@ -314,8 +320,7 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
                 barTouchData: BarTouchData(
                   enabled: true,
                   touchTooltipData: BarTouchTooltipData(
-                   // tooltipRoundedRadius: 4, // Matches the example's slight rounding
-                    getTooltipColor: (group) => Colors.grey.shade700, // Grey background for the tooltip box
+                    getTooltipColor: (group) => Colors.grey.shade700, 
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       final point = _chartDataPoints[group.x.toInt()];
                       final val = _displayMode == 'kWh' ? point.kwh : point.cost;
@@ -362,15 +367,17 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
                   rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 ),
-                borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade300, width: 0.5)),
+                borderData: FlBorderData(
+                  show: false, 
+                ),
                 gridData: FlGridData(
                   show: true, 
                   drawVerticalLine: false, 
                   horizontalInterval: null, // Let fl_chart calculate automatically
                    getDrawingHorizontalLine: (value) {
                     return FlLine(
-                      color: Colors.grey.shade300,
-                      strokeWidth: 0.5,
+                      color: Colors.black.withOpacity(0.2), 
+                      strokeWidth: 0.6,
                     );
                   },
                 ),

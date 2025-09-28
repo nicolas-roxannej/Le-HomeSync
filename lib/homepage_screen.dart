@@ -25,7 +25,7 @@ class HomepageScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomepageScreen> {
-  String _selectedPeriod = 'Weekly'; // State variable for selected period
+  String _selectedPeriod = 'Daily'; // State variable for selected period
   Weather? _currentWeather; // Renamed for clarity
   int _selectedIndex = 0;
   bool _isRefreshing = false; // State for refresh indicator
@@ -491,13 +491,43 @@ class _HomeScreenState extends State<HomepageScreen> {
                 ],
               ),
               
-              // Period selector on the right side
+              // Period selector and history button on the right side
               Row(
                 children: [
-                  Text(_selectedPeriod),
-                  IconButton(
-                    icon: Icon(Icons.calendar_month),
-                    onPressed: () => _showPeriodPicker(),
+                  // Calendar button with smaller design
+                  GestureDetector(
+                    onTap: () => _showPeriodPicker(),
+                    child: Container(
+                      padding: EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Icon(
+                        Icons.calendar_month,
+                        size: 20,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8), // Add spacing between buttons
+                  // History button with smaller design
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamed(context, '/history'); 
+                    },
+                    child: Container(
+                      padding: EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Icon(
+                        Icons.history,
+                        size: 20,
+                        color: Colors.black,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -511,7 +541,10 @@ class _HomeScreenState extends State<HomepageScreen> {
             width: double.infinity, // Make the graph take full width
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.grey[350],  
+              color: const Color.fromARGB(118, 255, 255, 255),  
+              borderRadius: BorderRadius.all
+              (Radius.circular(8.0)), 
+              
               
             
             ),
@@ -738,14 +771,14 @@ Widget _buildNavButton(String title, bool isSelected, int index) { // nav bar fu
   
  Widget _buildUsageStat(String title, String value, IconData icon) { // usage and cost 
   return Transform.translate(
-  offset: Offset(-0, 10),
+    offset: Offset(-0, 10),
     child: Row(
       children: [
         Icon(icon),
-        SizedBox(width: 5,height: 40,),
-        Text(title, style: GoogleFonts.judson(color: Colors.black,fontSize: 16)),
+        SizedBox(width: 5, height: 40,),
+        Text(title, style: GoogleFonts.judson(color: Colors.black, fontSize: 16)),
         Spacer(),
-        Text(value, style: TextStyle(color: Colors.black,fontWeight: FontWeight.bold,fontSize: 17)),
+        Text(value, style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 17)),
       ],
     ),
   );
@@ -832,7 +865,9 @@ Widget _buildDeviceItem(String id, String name, String usage, IconData icon) { /
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // calendar picker function
-  void _showPeriodPicker() {
+  // Replace the _showPeriodPicker() method with this corrected version
+
+void _showPeriodPicker() {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
@@ -847,16 +882,13 @@ Widget _buildDeviceItem(String id, String name, String usage, IconData icon) { /
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            tileColor: Colors.white, 
-            title: Text('Monthly'),
+            tileColor: Colors.white,
+            title: Text('Daily'),
             onTap: () {
               setState(() {
-                _selectedPeriod = 'Monthly';
+                _selectedPeriod = 'Daily';
               });
               _listenToSummaryUsage();
-              // if (_selectedApplianceId != null) { // REMOVED
-              //   _fetchSelectedApplianceUsage();
-              // }
               Navigator.pop(context); // Close the dialog
             },
           ),
@@ -868,9 +900,17 @@ Widget _buildDeviceItem(String id, String name, String usage, IconData icon) { /
                 _selectedPeriod = 'Weekly';
               });
               _listenToSummaryUsage();
-              // if (_selectedApplianceId != null) { // REMOVED
-              //  _fetchSelectedApplianceUsage();
-              // }
+              Navigator.pop(context); // Close the dialog
+            },
+          ),
+          ListTile(
+            tileColor: Colors.white, 
+            title: Text('Monthly'),
+            onTap: () {
+              setState(() {
+                _selectedPeriod = 'Monthly';
+              });
+              _listenToSummaryUsage();
               Navigator.pop(context); // Close the dialog
             },
           ),
@@ -882,23 +922,6 @@ Widget _buildDeviceItem(String id, String name, String usage, IconData icon) { /
                 _selectedPeriod = 'Yearly';
               });
               _listenToSummaryUsage();
-              // if (_selectedApplianceId != null) { // REMOVED
-              //   _fetchSelectedApplianceUsage();
-              // }
-              Navigator.pop(context); // Close the dialog
-            },
-          ),
-           ListTile(
-            tileColor: Colors.white,
-            title: Text('Daily'),
-            onTap: () {
-              setState(() {
-                _selectedPeriod = 'Daily';
-              });
-              _listenToSummaryUsage();
-              //  if (_selectedApplianceId != null) { // REMOVED
-              //   _fetchSelectedApplianceUsage();
-              // }
               Navigator.pop(context); // Close the dialog
             },
           ),

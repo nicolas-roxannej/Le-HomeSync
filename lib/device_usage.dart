@@ -121,7 +121,7 @@ class DeviceUsageState extends State<DeviceUsage> with SingleTickerProviderState
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.green[100], 
+                color: Colors.pink[100], 
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all()
               ),

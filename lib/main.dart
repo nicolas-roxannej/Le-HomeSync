@@ -25,6 +25,7 @@ import 'package:homesync/profile_screen.dart';
 import 'package:homesync/device_usage.dart';
 import 'package:homesync/notification_manager.dart';
 import 'package:homesync/notification_test_screen.dart';
+import 'package:homesync/history.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,6 +58,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => WelcomeScreen(),
         '/signup': (context) => SignUpScreen(),
         '/login': (context) => LoginScreen(),
+        '/history': (context) => DeviceHistoryScreen(),
         '/forgot-password': (context) => ForgotPasswordScreen(),
         '/homepage': (context) => HomepageScreen(),
         '/devices': (context) => DevicesScreen(),
