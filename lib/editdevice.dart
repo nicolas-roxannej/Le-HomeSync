@@ -165,49 +165,65 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
     }
   }
 
-  // Method to fetch room names from the database - FIXED VERSION
+  // IMPROVED FETCH ROOMS METHOD
   Future<void> _fetchRooms() async {
-    print("Fetching rooms for EditDeviceScreen..."); // Debug print
-    final userId = DatabaseService().getCurrentUserId(); // Use DatabaseService to get user ID
+    print("Fetching rooms for EditDeviceScreen...");
+    final userId = DatabaseService().getCurrentUserId();
     if (userId == null) {
       print("User not logged in, cannot fetch rooms for EditDeviceScreen.");
       return;
     }
-    print("Fetching rooms for user ID: $userId"); // Added debug print
+    print("Fetching rooms for user ID: $userId");
     try {
       final roomDocs = await DatabaseService().getCollection(collectionPath: 'users/$userId/Rooms');
-      print("Fetched ${roomDocs.docs.length} room documents."); // Added debug print
+      print("Fetched ${roomDocs.docs.length} room documents.");
       
-      // Remove duplicates using Set and convert back to List - FIX FOR DROPDOWN ERROR
-      final roomNames = roomDocs.docs
-          .map((doc) => doc['roomName'] as String)
-          .where((name) => name.isNotEmpty) // Filter out empty names
-          .toSet() // Convert to Set to remove duplicates
-          .toList(); // Convert back to List
-
-      // Fetch room icons
+      // More defensive room name extraction
+      final Set<String> roomNamesSet = <String>{};
       final Map<String, IconData> fetchedIcons = {};
+      
       for (final doc in roomDocs.docs) {
         final data = doc.data();
-        final roomName = data['roomName'] as String;
-        final iconCodePoint = data['icon'] as int?;
-        if (roomName.isNotEmpty) {
-          fetchedIcons[roomName] = iconCodePoint != null
+        final roomName = data['roomName'];
+        
+        // More thorough validation
+        if (roomName != null && roomName is String && roomName.trim().isNotEmpty) {
+          final cleanRoomName = roomName.trim();
+          roomNamesSet.add(cleanRoomName);
+          
+          final iconCodePoint = data['icon'] as int?;
+          fetchedIcons[cleanRoomName] = iconCodePoint != null
               ? _getIconFromCodePoint(iconCodePoint)
               : Icons.home;
         }
       }
+      
+      // Convert to list after ensuring uniqueness
+      final roomNames = roomNamesSet.toList();
+      roomNames.sort(); // Sort for consistency
           
       if (mounted) {
         setState(() {
           _roomNames = roomNames;
           roomIcons = fetchedIcons;
+          
+          // Validate current selectedRoom after fetching
+          if (selectedRoom != null && !roomNames.contains(selectedRoom!.trim())) {
+            print("Current selectedRoom '$selectedRoom' not found in fetched rooms, clearing selection");
+            selectedRoom = null;
+            roomController.text = '';
+          }
         });
       }
-      print("Fetched rooms for EditDeviceScreen (duplicates removed): $_roomNames"); // Debug print
+      print("Fetched and cleaned rooms: $roomNames");
     } catch (e) {
       print("Error fetching rooms for EditDeviceScreen: $e");
-      // Handle error, maybe show a message
+      if (mounted) {
+        setState(() {
+          _roomNames = [];
+          roomIcons = {};
+        });
+      }
     }
   }
 
@@ -328,41 +344,54 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                   ),
                   
                   // Modified Appliance Name section with Add button (similar to AddDeviceScreen)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.only(bottom: 5, top: 10),
-                          child: TextFormField(
-                            controller: applianceNameController,
-                            readOnly: true, // Make it read-only
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Colors.white,
-                              prefixIcon: Icon(Icons.device_hub, size: 30, color: Colors.black),
-                              labelText: "Appliance Name",
-                              labelStyle: GoogleFonts.jaldi(
-                                textStyle: TextStyle(fontSize: 20),
-                                color: Colors.grey,
-                              ),
-                              border: OutlineInputBorder(),
-                              errorText: applianceNameError,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return "Appliance Name is required";
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.edit, size: 30, color: Colors.black), // Changed to edit icon for edit screen
-                        onPressed: _addApplianceDialog,
-                      )
-                    ],
-                  ),
+                  // Replace the existing Appliance Name section with this updated version:
+
+// Modified Appliance Name section with Add button (similar to AddDeviceScreen)
+Row(
+  children: [
+    Expanded(
+      child: Container(
+        padding: const EdgeInsets.only(bottom: 5, top: 10),
+        child: TextFormField(
+          controller: applianceNameController,
+          readOnly: true, // Keep it read-only
+          enabled: false, // Disable the field completely
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.grey[100], // Slightly different color to show it's disabled
+            prefixIcon: Icon(Icons.device_hub, size: 30, color: Colors.black), // Grey color for disabled state
+            labelText: "Appliance Name",
+            labelStyle: GoogleFonts.jaldi(
+              textStyle: TextStyle(fontSize: 20),
+              color: Colors.black,
+            ),
+            border: OutlineInputBorder(),
+            disabledBorder: OutlineInputBorder(
+              borderSide: BorderSide( color: Colors.black), // Disabled border color
+            ),
+            errorText: applianceNameError,
+          ),
+          style: GoogleFonts.jaldi(
+            textStyle: TextStyle(
+              fontSize: 18,
+              color: Colors.black, // Disabled text color
+            ),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return "Appliance Name is required";
+            }
+            return null;
+          },
+        ),
+      ),
+    ),
+    IconButton(
+      icon: Icon(Icons.edit, size: 30, color: Colors.black), // Changed to edit icon for edit screen
+      onPressed: _addApplianceDialog,
+    )
+  ],
+),
 
                   _buildRequiredTextField(
                     wattageController,
@@ -378,8 +407,9 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                   
                   SizedBox(height: 15),
                   
-                  // Device type dropdown 
+                  // FIXED Device type dropdown 
                   DropdownButtonFormField<String>(
+                    key: ValueKey('device_type_dropdown'),
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: Colors.white,
@@ -395,23 +425,25 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                     style: GoogleFonts.jaldi(
                       textStyle: TextStyle(fontSize: 18, color: Colors.black87),
                     ),
-                    value: deviceType,
-                    items: ['Light', 'Socket'].map((type) {
-                      return DropdownMenuItem(
+                    value: ['Light', 'Socket'].contains(deviceType) ? deviceType : 'Light',
+                    items: ['Light', 'Socket'].map((String type) {
+                      return DropdownMenuItem<String>(
                         value: type,
                         child: Text(type),
                       );
                     }).toList(),
-                    onChanged: (value) {
+                    onChanged: (String? value) {
                       setState(() {
-                        deviceType = value!;
+                        deviceType = value ?? 'Light';
                       });
                     },
                   ),
                   
                   
                   SizedBox(height: 15),
+                  // FIXED Relay dropdown
                   DropdownButtonFormField<String>(
+                    key: ValueKey('relay_dropdown_${_availableRelays.length}'),
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: Colors.white,
@@ -420,14 +452,14 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                       errorText: socketError,
                       border: OutlineInputBorder(),
                     ),
-                    value: selectedRelay,
-                    items: _availableRelays.map((relay) {
-                      return DropdownMenuItem(
+                    value: (_availableRelays.contains(selectedRelay)) ? selectedRelay : null,
+                    items: _availableRelays.map((String relay) {
+                      return DropdownMenuItem<String>(
                         value: relay,
                         child: Text(relay),
                       );
                     }).toList(),
-                    onChanged: (value) {
+                    onChanged: (String? value) {
                       setState(() {
                         selectedRelay = value;
                         socketError = null;
@@ -643,67 +675,156 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
     );
   }
 
-  // FIXED ROOM DROPDOWN METHOD
+  // BULLETPROOF ROOM DROPDOWN - No more Flutter dropdown assertion errors
   Widget _buildRoomDropdown() {
-    // Create a Set to ensure unique values, then convert to List
-    final uniqueRoomNames = _roomNames.where((name) => name.isNotEmpty).toSet().toList();
-    
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Colors.white,
-              prefixIcon: Icon(
-                selectedRoom != null ? (roomIcons[selectedRoom] ?? Icons.home) : Icons.home,
-                size: 30,
-                color: Colors.black
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _showRoomSelectionDialog(),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 15, vertical: 17),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(
+                      color: roomError != null ? Colors.red : Colors.grey,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        selectedRoom != null ? (roomIcons[selectedRoom] ?? Icons.home) : Icons.home,
+                        size: 30,
+                        color: Colors.black
+                      ),
+                      SizedBox(width: 15),
+                      Expanded(
+                        child: Text(
+                          selectedRoom ?? 'Select a room',
+                          style: GoogleFonts.jaldi(
+                            textStyle: TextStyle(
+                              fontSize: 18, 
+                              color: selectedRoom != null ? Colors.black87 : Colors.grey
+                            ),
+                          ),
+                        ),
+                      ),
+                      Icon(Icons.arrow_drop_down, color: Colors.grey),
+                    ],
+                  ),
+                ),
               ),
-              labelText: 'Room',
-              labelStyle: GoogleFonts.jaldi(
-                textStyle: TextStyle(fontSize: 20),
-                color: Colors.grey, // Use grey for label like other text fields
-              ),
-              border: OutlineInputBorder(),
-              errorText: roomError,
-              contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 17),
             ),
-            dropdownColor: Colors.grey[200],
-            style: GoogleFonts.jaldi(
-              textStyle: TextStyle(fontSize: 18, color: Colors.black87),
+            SizedBox(width: 8),
+            IconButton(
+              icon: Icon(Icons.add, size: 30, color: Colors.black),
+              onPressed: _addRoomDialog,
             ),
-            value: (selectedRoom != null && uniqueRoomNames.contains(selectedRoom)) ? selectedRoom : null,
-            items: uniqueRoomNames.isEmpty 
-              ? [DropdownMenuItem<String>(value: null, child: Text('No rooms available'))]
-              : uniqueRoomNames.map((roomName) {
-                  return DropdownMenuItem(
-                    value: roomName,
-                    child: Text(roomName),
-                  );
-                }).toList(),
-            onChanged: uniqueRoomNames.isEmpty ? null : (value) {
-              setState(() {
-                selectedRoom = value;
-                roomController.text = value ?? '';
-                roomError = null;
-              });
-            },
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return "Room is required";
-              }
-              return null;
-            },
+          ],
+        ),
+        if (roomError != null)
+          Padding(
+            padding: EdgeInsets.only(top: 5, left: 15),
+            child: Text(
+              roomError!,
+              style: TextStyle(color: Colors.red, fontSize: 12),
+            ),
           ),
-        ),
-        SizedBox(width: 8), // Add some spacing
-        IconButton(
-          icon: Icon(Icons.add, size: 30, color: Colors.black),
-          onPressed: _addRoomDialog,
-        ),
       ],
+    );
+  }
+
+  // Add this new method to show room selection
+  void _showRoomSelectionDialog() {
+    // Clean and deduplicate room names
+    final uniqueRoomNames = _roomNames
+        .where((name) => name != null && name.toString().trim().isNotEmpty)
+        .map((name) => name.toString().trim())
+        .toSet()
+        .toList();
+    
+    uniqueRoomNames.sort();
+    
+    if (uniqueRoomNames.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("No rooms available. Please add a room first."))
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFE9E7E6),
+          title: Text(
+            'Select Room',
+            style: GoogleFonts.jaldi(
+              fontSize: 25,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: uniqueRoomNames.length,
+              itemBuilder: (context, index) {
+                final roomName = uniqueRoomNames[index];
+                final isSelected = selectedRoom == roomName;
+                
+                return ListTile(
+                  leading: Icon(
+                    roomIcons[roomName] ?? Icons.home,
+                    color: isSelected ? Colors.blue : Colors.black,
+                  ),
+                  title: Text(
+                    roomName,
+                    style: GoogleFonts.jaldi(
+                      textStyle: TextStyle(
+                        fontSize: 18,
+                        color: isSelected ? Colors.blue : Colors.black,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                  trailing: isSelected ? Icon(Icons.check, color: Colors.blue) : null,
+                  onTap: () {
+                    setState(() {
+                      selectedRoom = roomName;
+                      roomController.text = roomName;
+                      roomError = null;
+                    });
+                    Navigator.of(context).pop();
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.all(Colors.black),
+                foregroundColor: WidgetStateProperty.all(Colors.white),
+              ),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.jaldi(
+                  textStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -866,179 +987,290 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
   }
 
   // New appliance dialog 
-  void _addApplianceDialog() {
-    TextEditingController modelNameInput = TextEditingController();
-    String? selectedBrand;
-    String? selectedApplianceType;
+void _addApplianceDialog() {
+  TextEditingController modelNameInput = TextEditingController();
+  String? selectedBrand;
+  String? selectedApplianceType;
 
-   
-    final currentName = applianceNameController.text;
-    if (currentName.isNotEmpty) {
-      
-      final parts = currentName.split(' - ');
-      if (parts.length == 2) {
-        selectedBrand = parts[1];
-        final typeAndModel = parts[0].split(' ');
-        if (typeAndModel.length >= 2) {
-          selectedApplianceType = typeAndModel[0];
-          modelNameInput.text = typeAndModel.sublist(1).join(' ');
-        }
+  // Parse current appliance name to populate fields
+  final currentName = applianceNameController.text;
+  if (currentName.isNotEmpty) {
+    final parts = currentName.split(' - ');
+    if (parts.length == 2) {
+      selectedBrand = parts[1];
+      final typeAndModel = parts[0].split(' ');
+      if (typeAndModel.length >= 2) {
+        selectedApplianceType = typeAndModel[0];
+        modelNameInput.text = typeAndModel.sublist(1).join(' ');
       }
     }
+  }
 
-    // Smart brands list 
-    final List<String> smartBrands = [
-      'Samsung', 'LG', 'Xiaomi', 'Philips', 'Sony', 'Panasonic', 
-      'TCL', 'Haier', 'Whirlpool', 'Electrolux', 'Bosch', 'GE',
-      'KitchenAid', 'Frigidaire', 'Maytag', 'Fisher & Paykel'
-    ];
+  // Smart brands list 
+  final List<String> smartBrands = [
+    'Samsung', 'LG', 'Xiaomi', 'Philips', 'Sony', 'Panasonic', 
+    'TCL', 'Haier', 'Whirlpool', 'Electrolux', 'Bosch', 'GE',
+    'KitchenAid', 'Frigidaire', 'Maytag', 'Fisher & Paykel'
+  ];
 
-    // Appliance types list 
-    final List<String> applianceTypes = [
-      'TV', 'Air Conditioner', 'Refrigerator', 'Washing Machine',
-      'Microwave', 'Dishwasher', 'Coffee Maker', 'Rice Cooker',
-      'Electric Fan', 'Heater', 'Speaker', 'Plugs', 'Air Fryer',
-      'Light', 'Router', 'Home Hub', 'Air Purifier', 'Alarm Clock',
-      'Doorbell', 'CCTV', 'Smoke Alarm', 'Garage Door', 'Lock', 'Vacuum', 'Lamp',
-    ];
+  // Appliance types list 
+  final List<String> applianceTypes = [
+    'TV', 'Air Conditioner', 'Refrigerator', 'Washing Machine',
+    'Microwave', 'Dishwasher', 'Coffee Maker', 'Rice Cooker',
+    'Electric Fan', 'Heater', 'Speaker', 'Plugs', 'Air Fryers',
+    'Light', 'Router', 'Home Hubs', 'Air Purifiers', 'Alarm Clocks',
+    'Doorbell', 'CCTV', 'Smoke Alarm', 'Garage Door', 'Lock', 'Vacuums', 'Lamp',
+  ];
 
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFFE9E7E6),
-        titleTextStyle: GoogleFonts.jaldi(
-          fontSize: 25,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
-        title: Text('Edit Smart Appliance'),
-        content: StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            return SingleChildScrollView(
+  showDialog(
+    context: context,
+    builder: (_) {
+      // Error state variables declared in the builder scope
+      String? brandError;
+      String? modelNameError;
+      String? applianceTypeError;
+      
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setDialogState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFFE9E7E6),
+            titleTextStyle: GoogleFonts.jaldi(
+              fontSize: 25,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+            title: Text('Edit Smart Appliance'),
+            content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Smart Brand Dropdown
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      labelText: 'Smart Brand',
-                      labelStyle: GoogleFonts.jaldi(
-                        textStyle: TextStyle(fontSize: 18),
-                        color: Colors.black,
+                  // Appliance Type Dropdown with error handling (MOVED TO FIRST)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        key: ValueKey('appliance_type_dropdown'),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          labelText: 'Appliance Type ',
+                          labelStyle: GoogleFonts.jaldi(
+                            textStyle: TextStyle(fontSize: 18),
+                            color: Colors.black,
+                          ),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: applianceTypeError != null ? const Color.fromARGB(255, 131, 24, 16) : Colors.grey,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: applianceTypeError != null ? const Color.fromARGB(255, 139, 28, 20) : Colors.grey,
+                            ),
+                          ),
+                        ),
+                        dropdownColor: Colors.grey[200],
+                        style: GoogleFonts.jaldi(
+                          textStyle: TextStyle(fontSize: 16, color: Colors.black87),
+                        ),
+                        value: applianceTypes.contains(selectedApplianceType) ? selectedApplianceType : null,
+                        items: applianceTypes.map((String type) {
+                          return DropdownMenuItem<String>(
+                            value: type,
+                            child: Text(type),
+                          );
+                        }).toList(),
+                        onChanged: (String? value) {
+                          setDialogState(() {
+                            selectedApplianceType = value;
+                            applianceTypeError = null; // Clear error when user selects
+                          });
+                        },
                       ),
-                      border: OutlineInputBorder(),
-                    ),
-                    dropdownColor: Colors.grey[200],
-                    style: GoogleFonts.jaldi(
-                      textStyle: TextStyle(fontSize: 16, color: Colors.black87),
-                    ),
-                    value: selectedBrand,
-                    items: smartBrands.map((brand) {
-                      return DropdownMenuItem(
-                        value: brand,
-                        child: Text(brand),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setDialogState(() {
-                        selectedBrand = value;
-                      });
-                    },
+                      if (applianceTypeError != null)
+                        Padding(
+                          padding: EdgeInsets.only(left: 12, top: 5),
+                          child: Text(
+                            applianceTypeError!,
+                            style: TextStyle(color: const Color.fromARGB(255, 136, 27, 19), fontSize: 12),
+                          ),
+                        ),
+                    ],
                   ),
                   SizedBox(height: 15),
                   
-                  // Model Name Input
-                  TextField(
-                    controller: modelNameInput,
-                    style: GoogleFonts.inter(
-                      textStyle: TextStyle(fontSize: 17),
-                      color: Colors.black,
-                    ),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(),
-                      labelText: "Model Name",
-                      labelStyle: GoogleFonts.jaldi(
-                        textStyle: TextStyle(fontSize: 18),
-                        color: Colors.grey,
+                  // Smart Brand Dropdown with error handling (MOVED TO SECOND)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        key: ValueKey('brand_dropdown'),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          labelText: 'Brand Name ',
+                          labelStyle: GoogleFonts.jaldi(
+                            textStyle: TextStyle(fontSize: 18),
+                            color: Colors.black,
+                          ),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: brandError != null ? const Color.fromARGB(255, 161, 34, 25) : Colors.grey,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: brandError != null ? const Color.fromARGB(255, 143, 30, 21) : Colors.grey,
+                            ),
+                          ),
+                        ),
+                        dropdownColor: Colors.grey[200],
+                        style: GoogleFonts.jaldi(
+                          textStyle: TextStyle(fontSize: 16, color: Colors.black87),
+                        ),
+                        value: smartBrands.contains(selectedBrand) ? selectedBrand : null,
+                        items: smartBrands.map((String brand) {
+                          return DropdownMenuItem<String>(
+                            value: brand,
+                            child: Text(brand),
+                          );
+                        }).toList(),
+                        onChanged: (String? value) {
+                          setDialogState(() {
+                            selectedBrand = value;
+                            brandError = null; // Clear error when user selects
+                          });
+                        },
                       ),
-                      hintText: "Enter model name",
-                      hintStyle: GoogleFonts.inter(
-                        color: Colors.grey,
-                        fontSize: 15,
-                      ),
-                    ),
+                      if (brandError != null)
+                        Padding(
+                          padding: EdgeInsets.only(left: 12, top: 5),
+                          child: Text(
+                            brandError!,
+                            style: TextStyle(color: const Color.fromARGB(255, 136, 32, 24), fontSize: 12),
+                          ),
+                        ),
+                    ],
                   ),
                   SizedBox(height: 15),
                   
-                  // Appliance Type Dropdown
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      labelText: 'Appliance Type',
-                      labelStyle: GoogleFonts.jaldi(
-                        textStyle: TextStyle(fontSize: 18),
-                        color: Colors.black,
+                  // Model Name Input with error handling (MOVED TO THIRD)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: modelNameInput,
+                        style: GoogleFonts.inter(
+                          textStyle: TextStyle(fontSize: 17),
+                          color: Colors.black,
+                        ),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: modelNameError != null ? const Color.fromARGB(255, 153, 35, 27) : Colors.grey,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: modelNameError != null ? const Color.fromARGB(255, 148, 32, 24) : Colors.grey,
+                            ),
+                          ),
+                          labelText: "Model Name ",
+                          labelStyle: GoogleFonts.jaldi(
+                            textStyle: TextStyle(fontSize: 18),
+                            color: Colors.grey,
+                          ),
+                          hintText: "Enter model name",
+                          hintStyle: GoogleFonts.inter(
+                            color: Colors.grey,
+                            fontSize: 15,
+                          ),
+                        ),
+                        onChanged: (value) {
+                          if (value.isNotEmpty && modelNameError != null) {
+                            setDialogState(() {
+                              modelNameError = null; // Clear error when user types
+                            });
+                          }
+                        },
                       ),
-                      border: OutlineInputBorder(),
-                    ),
-                    dropdownColor: Colors.grey[200],
-                    style: GoogleFonts.jaldi(
-                      textStyle: TextStyle(fontSize: 16, color: Colors.black87),
-                    ),
-                    value: selectedApplianceType,
-                    items: applianceTypes.map((type) {
-                      return DropdownMenuItem(
-                        value: type,
-                        child: Text(type),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setDialogState(() {
-                        selectedApplianceType = value;
-                      });
-                    },
+                      if (modelNameError != null)
+                        Padding(
+                          padding: EdgeInsets.only(left: 12, top: 5),
+                          child: Text(
+                            modelNameError!,
+                            style: TextStyle(color: const Color.fromARGB(255, 136, 29, 22), fontSize: 12),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
-            );
-          }
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              if (selectedBrand != null && 
-                  modelNameInput.text.isNotEmpty && 
-                  selectedApplianceType != null) {
-                
-                String applianceName = '$selectedApplianceType ${modelNameInput.text} - $selectedBrand';
-                setState(() {
-                  applianceNameController.text = applianceName;
-                  applianceNameError = null;
-                });
-              }
-              Navigator.pop(context);
-            },
-            style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.all(Colors.black),
-              foregroundColor: WidgetStateProperty.all(Colors.white),
             ),
-            child: Text(
-              'Update',
-              style: GoogleFonts.jaldi(
-                textStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                color: Colors.white,
+            actions: [
+              TextButton(
+                onPressed: () {
+                  // Validate all required fields
+                  bool hasErrors = false;
+                  
+                  // Update dialog state to show errors
+                  setDialogState(() {
+                    // Check Appliance Type (now first)
+                    if (selectedApplianceType == null) {
+                      applianceTypeError = "Appliance type is required";
+                      hasErrors = true;
+                    } else {
+                      applianceTypeError = null;
+                    }
+                    
+                    // Check Brand Name (now second)
+                    if (selectedBrand == null) {
+                      brandError = "Brand name is required";
+                      hasErrors = true;
+                    } else {
+                      brandError = null;
+                    }
+                    
+                    // Check Model Name (now third)
+                    if (modelNameInput.text.trim().isEmpty) {
+                      modelNameError = "Model name is required";
+                      hasErrors = true;
+                    } else {
+                      modelNameError = null;
+                    }
+                  });
+                  
+                  // Only proceed if no errors
+                  if (!hasErrors) {
+                    String applianceName = '$selectedApplianceType $selectedBrand - ${modelNameInput.text.trim()}';
+                    setState(() {
+                      applianceNameController.text = applianceName;
+                      applianceNameError = null;
+                    });
+                    Navigator.pop(context);
+                  }
+                },
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.all(Colors.black),
+                  foregroundColor: WidgetStateProperty.all(Colors.white),
+                ),
+                child: Text(
+                  'Update',
+                  style: GoogleFonts.jaldi(
+                    textStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+            ],
+          );
+        },
+      );
+    },
+  );
+}
 
   void _pickIcon() { // icon picker
     showModalBottomSheet(
@@ -1290,11 +1522,27 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+           backgroundColor: const Color(0xFFE9E7E6),
           title: Text('Confirm Delete'),
-          content: Text('Are you sure you want to delete "$applianceNameToDelete"?'),
+          titleTextStyle: GoogleFonts.jaldi(
+          fontSize: 23, 
+          fontWeight: FontWeight.bold,
+          color: Colors.black,
+),   
+          content: Text('Are you sure you want to delete "$applianceNameToDelete"?',
+          style:GoogleFonts.inter(
+              color: Colors.black,
+              fontSize: 15,
+              ),   
+          ),
           actions: <Widget>[
             TextButton(
-              child: Text('Cancel'),
+              child: Text('Cancel',
+              style:GoogleFonts.inter(
+              color: Colors.black,
+              fontSize: 15,
+              ),   
+              ),
               onPressed: () {
                 Navigator.of(context).pop(false);
               },

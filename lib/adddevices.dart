@@ -22,7 +22,7 @@ class AddDeviceScreen extends StatefulWidget {
 
 class _AddDeviceScreenState extends State<AddDeviceScreen> {
   // Add a list of all possible relays
-  final List<String> _allRelays = List.generate(9, (index) => 'relay${index + 1}');
+  final List<String> _allRelays = List.generate(8, (index) => 'relay${index + 1}');
   // List to hold available relays after filtering
   List<String> _availableRelays = [];
 
@@ -267,41 +267,65 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                   ),
 
                   // Appliance Name section with Add button
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.only(bottom: 5, top: 10),
-                          child: TextFormField(
-                            controller: applianceNameController,
-                            readOnly: true, 
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Colors.white,
-                              prefixIcon: Icon(Icons.device_hub, size: 30, color: Colors.black),
-                              labelText: "Appliance Name",
-                              labelStyle: GoogleFonts.jaldi(
-                                textStyle: TextStyle(fontSize: 20),
-                                color: Colors.grey,
-                              ),
-                              border: OutlineInputBorder(),
-                              errorText: applianceNameError,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return "Appliance Name is required";
-                              }
-                              return null;
-                            },
-                          ),
+                  // Replace the Appliance Name section with this code
+// Replace the Appliance Name section with this code
+Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.only(bottom: 5, top: 10),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 15, vertical: 17),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(
+                  color: applianceNameError != null ? const Color.fromARGB(255, 179, 36, 26) : Colors.black,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.device_hub, size: 30, color: Colors.black),
+                  SizedBox(width: 15),
+                  Expanded(
+                    child: Text(
+                      applianceNameController.text.isEmpty 
+                        ? "Appliance Name" 
+                        : applianceNameController.text,
+                      style: GoogleFonts.jaldi(
+                        textStyle: TextStyle(
+                          fontSize: 18,
+                          color: applianceNameController.text.isEmpty 
+                            ? Colors.grey 
+                            : Colors.black87,
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.add, size: 30, color: Colors.black),
-                        onPressed: _addApplianceDialog,
-                      )
-                    ],
+                    ),
                   ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        IconButton(
+          icon: Icon(Icons.add, size: 30, color: Colors.black),
+          onPressed: _addApplianceDialog,
+        )
+      ],
+    ),
+    if (applianceNameError != null)
+      Padding(
+        padding: EdgeInsets.only(left: 15, top: 2),
+        child: Text(
+          applianceNameError!,
+          style: TextStyle(color: const Color.fromARGB(255, 172, 36, 26), fontSize: 12),
+        ),
+      ),
+  ],
+),
 
                   _buildRequiredTextField(
                     wattageController,
@@ -592,7 +616,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                   // Submit and Delete buttons
                   Row(
                     children: [
-                      if (isEditing) // Show delete button only in edit mode
+                      if (isEditing)
                         Expanded(
                           child: ElevatedButton(
                             onPressed: _deleteDevice,
@@ -616,7 +640,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                             ),
                           ),
                         ),
-                      SizedBox(width: isEditing ? 10 : 0), // Add spacing if delete button is present
+                      SizedBox(width: isEditing ? 10 : 0),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _validateAndSubmitDevice,
@@ -644,14 +668,15 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                   ),
                 ],
               ),
+              
+              ),
+  
             ),
           ),
         ),
-      ),
-    );
+      );
+    
   }
-
-  // Required text field
   Widget _buildRequiredTextField(
     TextEditingController controller,
     String label,
@@ -775,10 +800,10 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
         ),
 
         actions: [
-          TextButton(  // room add btn
+          TextButton(  // add btn room
             onPressed: () {
               if (roomInput.text.isNotEmpty) {
-                // Add room to Firestore
+                // Add room Firestore
                 _addRoomToFirestore(roomInput.text, roomIconSelected);
 
                 setState(() {
@@ -806,169 +831,262 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
       ),
     );
   }
+void _addApplianceDialog() {
+  TextEditingController modelNameInput = TextEditingController();
+  String? selectedBrand;
+  String? selectedApplianceType;
+  final List<String> smartBrands = [
+    'Samsung', 'LG', 'Xiaomi', 'Philips', 'Sony', 'Panasonic', 
+    'TCL', 'Haier', 'Whirlpool', 'Electrolux', 'Bosch', 'GE',
+    'KitchenAid', 'Frigidaire', 'Maytag', 'Fisher & Paykel',
+  ];
+  final List<String> applianceTypes = [
+    'TV', 'Air Conditioner', 'Refrigerator', 'Washing Machine',
+    'Microwave', 'Dishwasher', 'Coffee Maker', 'Rice Cooker',
+    'Electric Fan', 'Heater', 'Speaker', 'Plugs', 'Air Fryers',
+    'Light', 'Router', 'Home Hubs', 'Air Purifiers', 'Alarm Clocks',
+    'Doorbell', 'CCTV', 'Smoke Alarm', 'Garage Door', 'Lock', 'Vacuums', 'Lamp',
+  ];
 
-  
-  void _addApplianceDialog() {
-    TextEditingController modelNameInput = TextEditingController();
-    String? selectedBrand;
-    String? selectedApplianceType;
-
-    // Smart brands list
-    final List<String> smartBrands = [
-      'Samsung', 'LG', 'Xiaomi', 'Philips', 'Sony', 'Panasonic', 
-      'TCL', 'Haier', 'Whirlpool', 'Electrolux', 'Bosch', 'GE',
-      'KitchenAid', 'Frigidaire', 'Maytag', 'Fisher & Paykel',
-    ];
-
-    // Appliance types list
-    final List<String> applianceTypes = [
-      'TV', 'Air Conditioner', 'Refrigerator', 'Washing Machine',
-      'Microwave', 'Dishwasher', 'Coffee Maker', 'Rice Cooker',
-      'Electric Fan', 'Heater', 'Speaker', 'Plugs', 'Air Fryers',
-      'Light', 'Router', 'Home Hubs', 'Air Purifiers', 'Alarm Clocks',
-      'Doorbell', 'CCTV', 'Smoke Alarm', 'Garage Door', 'Lock', 'Vacuums', 'Lamp',
-
-    ];
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFFE9E7E6),
-        titleTextStyle: GoogleFonts.jaldi(
-          fontSize: 25,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
-        title: Text('Add Smart Appliance'),
-        content: StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            return SingleChildScrollView(
+  showDialog(
+    context: context,
+    builder: (_) {
+      // Error state variables 
+      String? brandError;
+      String? modelNameError;
+      String? applianceTypeError;
+      
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setDialogState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFFE9E7E6),
+            titleTextStyle: GoogleFonts.jaldi(
+              fontSize: 25,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+            title: Text('Add Smart Appliance'),
+            content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Smart Brand Dropdown
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      labelText: 'Smart Brand',
-                      labelStyle: GoogleFonts.jaldi(
-                        textStyle: TextStyle(fontSize: 18),
-                        color: Colors.black,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          labelText: 'Appliance Type ',
+                          labelStyle: GoogleFonts.jaldi(
+                            textStyle: TextStyle(fontSize: 18),
+                            color: Colors.black,
+                          ),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: applianceTypeError != null ? const Color.fromARGB(255, 131, 24, 16) : Colors.grey,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: applianceTypeError != null ? const Color.fromARGB(255, 139, 28, 20) : Colors.grey,
+                            ),
+                          ),
+                        ),
+                        dropdownColor: Colors.grey[200],
+                        style: GoogleFonts.jaldi(
+                          textStyle: TextStyle(fontSize: 16, color: Colors.black87),
+                        ),
+                        value: selectedApplianceType,
+                        items: applianceTypes.map((type) {
+                          return DropdownMenuItem(
+                            value: type,
+                            child: Text(type),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedApplianceType = value;
+                            applianceTypeError = null; 
+                          });
+                        },
                       ),
-                      border: OutlineInputBorder(),
-                    ),
-                    dropdownColor: Colors.grey[200],
-                    style: GoogleFonts.jaldi(
-                      textStyle: TextStyle(fontSize: 16, color: Colors.black87),
-                    ),
-                    value: selectedBrand,
-                    items: smartBrands.map((brand) {
-                      return DropdownMenuItem(
-                        value: brand,
-                        child: Text(brand),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setDialogState(() {
-                        selectedBrand = value;
-                      });
-                    },
+                      if (applianceTypeError != null)
+                        Padding(
+                          padding: EdgeInsets.only(left: 12, top: 5),
+                          child: Text(
+                            applianceTypeError!,
+                            style: TextStyle(color: const Color.fromARGB(255, 136, 27, 19), fontSize: 12),
+                          ),
+                        ),
+                    ],
                   ),
                   SizedBox(height: 15),
-                  
-                  // Model Name Input
-                  TextField(
-                    controller: modelNameInput,
-                    style: GoogleFonts.inter(
-                      textStyle: TextStyle(fontSize: 17),
-                      color: Colors.black,
-                    ),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(),
-                      labelText: "Model Name",
-                      labelStyle: GoogleFonts.jaldi(
-                        textStyle: TextStyle(fontSize: 18),
-                        color: Colors.grey,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          labelText: 'Brand Name ',
+                          labelStyle: GoogleFonts.jaldi(
+                            textStyle: TextStyle(fontSize: 18),
+                            color: Colors.black,
+                          ),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: brandError != null ? const Color.fromARGB(255, 161, 34, 25) : Colors.grey,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: brandError != null ? const Color.fromARGB(255, 143, 30, 21) : Colors.grey,
+                            ),
+                          ),
+                        ),
+                        dropdownColor: Colors.grey[200],
+                        style: GoogleFonts.jaldi(
+                          textStyle: TextStyle(fontSize: 16, color: Colors.black87),
+                        ),
+                        value: selectedBrand,
+                        items: smartBrands.map((brand) {
+                          return DropdownMenuItem(
+                            value: brand,
+                            child: Text(brand),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedBrand = value;
+                            brandError = null; // Clear error when user selects
+                          });
+                        },
                       ),
-                      hintText: "Enter model name",
-                      hintStyle: GoogleFonts.inter(
-                        color: Colors.grey,
-                        fontSize: 15,
-                      ),
-                    ),
+                      if (brandError != null)
+                        Padding(
+                          padding: EdgeInsets.only(left: 12, top: 5),
+                          child: Text(
+                            brandError!,
+                            style: TextStyle(color: const Color.fromARGB(255, 136, 32, 24), fontSize: 12),
+                          ),
+                        ),
+                    ],
                   ),
                   SizedBox(height: 15),
-                  
-                  // Appliance Type Dropdown
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      labelText: 'Appliance Type',
-                      labelStyle: GoogleFonts.jaldi(
-                        textStyle: TextStyle(fontSize: 18),
-                        color: Colors.black,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: modelNameInput,
+                        style: GoogleFonts.inter(
+                          textStyle: TextStyle(fontSize: 17),
+                          color: Colors.black,
+                        ),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: modelNameError != null ? const Color.fromARGB(255, 153, 35, 27) : Colors.grey,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: modelNameError != null ? const Color.fromARGB(255, 148, 32, 24) : Colors.grey,
+                            ),
+                          ),
+                          labelText: "Model Name ",
+                          labelStyle: GoogleFonts.jaldi(
+                            textStyle: TextStyle(fontSize: 18),
+                            color: Colors.grey,
+                          ),
+                          hintText: "Enter model name",
+                          hintStyle: GoogleFonts.inter(
+                            color: Colors.grey,
+                            fontSize: 15,
+                          ),
+                        ),
+                        onChanged: (value) {
+                          if (value.isNotEmpty && modelNameError != null) {
+                            setDialogState(() {
+                              modelNameError = null; // Clear error when user types
+                            });
+                          }
+                        },
                       ),
-                      border: OutlineInputBorder(),
-                    ),
-                    dropdownColor: Colors.grey[200],
-                    style: GoogleFonts.jaldi(
-                      textStyle: TextStyle(fontSize: 16, color: Colors.black87),
-                    ),
-                    value: selectedApplianceType,
-                    items: applianceTypes.map((type) {
-                      return DropdownMenuItem(
-                        value: type,
-                        child: Text(type),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setDialogState(() {
-                        selectedApplianceType = value;
-                      });
-                    },
+                      if (modelNameError != null)
+                        Padding(
+                          padding: EdgeInsets.only(left: 12, top: 5),
+                          child: Text(
+                            modelNameError!,
+                            style: TextStyle(color: const Color.fromARGB(255, 136, 29, 22), fontSize: 12),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
-            );
-          }
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              if (selectedBrand != null && 
-                  modelNameInput.text.isNotEmpty && 
-                  selectedApplianceType != null) {
-                
-                String applianceName = '$selectedApplianceType $selectedBrand - ${modelNameInput.text} ';
-               
-                setState(() {
-                  applianceNameController.text = applianceName;
-                  applianceNameError = null;
-                });
-              }
-              Navigator.pop(context);
-            },
-            style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.all(Colors.black),
-              foregroundColor: WidgetStateProperty.all(Colors.white),
             ),
-            child: Text(
-              'Add',
-              style: GoogleFonts.jaldi(
-                textStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                color: Colors.white,
+            actions: [
+              TextButton(
+                onPressed: () {
+                  // Validate all required fields
+                  bool hasErrors = false;
+                  setDialogState(() {
+                    //Appliance Type
+                    if (selectedApplianceType == null) {
+                      applianceTypeError = "Appliance type is required";
+                      hasErrors = true;
+                    } else {
+                      applianceTypeError = null;
+                    }
+                    //Brand Name
+                    if (selectedBrand == null) {
+                      brandError = "Brand name is required";
+                      hasErrors = true;
+                    } else {
+                      brandError = null;
+                    }
+                    // Model Name
+                    if (modelNameInput.text.trim().isEmpty) {
+                      modelNameError = "Model name is required";
+                      hasErrors = true;
+                    } else {
+                      modelNameError = null;
+                    }
+                  });
+                  // proceed if no errors
+                  if (!hasErrors) {
+                    String applianceName = '$selectedApplianceType $selectedBrand - ${modelNameInput.text.trim()}';
+                    
+                    setState(() {
+                      applianceNameController.text = applianceName;
+                      applianceNameError = null;
+                    });
+                    
+                    Navigator.pop(context);
+                  }
+                },
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.all(Colors.black),
+                  foregroundColor: WidgetStateProperty.all(Colors.white),
+                ),
+                child: Text(
+                  'Add',
+                  style: GoogleFonts.jaldi(
+                    textStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+            ],
+          );
+        },
+      );
+    },
+  );
+}
   void _pickIcon() { // icon picker
     showModalBottomSheet(
       context: context,
