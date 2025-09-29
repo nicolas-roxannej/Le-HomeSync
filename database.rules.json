@@ -34,14 +34,6 @@
       ".read": "auth != null",
       ".write": "auth != null"
     },
-    "relay9": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "relay10": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
     "electricity_usage": {
       ".read": "auth != null",
       ".write": "auth != null"

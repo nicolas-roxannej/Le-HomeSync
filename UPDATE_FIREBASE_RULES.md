@@ -88,14 +88,6 @@ service cloud.firestore {
       ".read": true,
       ".write": true
     },
-    "relay9": {
-      ".read": true,
-      ".write": true
-    },
-    "relay10": {
-      ".read": true,
-      ".write": true
-    },
     "electricity_usage": {
       ".read": true,
       ".write": true

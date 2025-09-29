@@ -1,5 +1,5 @@
 {
-  "Bedroom": [
+  "Bedroom": 
       {
         "applianceName": "Air-con",
         "roomName": "Bedroom",
@@ -11,18 +11,6 @@
         "endTime": "20:00",
         "days": ["Mon", "Tue", "Wed", "Thu", "Fri"]
       },
-      {
-        "applianceName": "Light 3",
-        "roomName": "Bedroom",
-        "deviceType": "Light",
-        "relay": "relay8",
-        "icon": "0xe33a",
-        "kwh": 0.1,
-        "startTime": "18:00",
-        "endTime": "06:00",
-        "days": ["Sat", "Sun"]
-      }
-    ],
     "Kitchen Area": [
       {
         "applianceName": "Oven",
@@ -34,17 +22,6 @@
         "startTime": "10:00",
         "endTime": "11:00",
         "days": ["Sat", "Sun"]
-      },
-      {
-        "applianceName": "Light 1",
-        "roomName": "Kitchen Area",
-        "deviceType": "Light",
-        "relay": "relay9",
-        "icon": "0xe33a",
-        "kwh": 0.2,
-        "startTime": "06:00",
-        "endTime": "22:00",
-        "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
       },
       {
       "applianceName": "Rice-cooker",

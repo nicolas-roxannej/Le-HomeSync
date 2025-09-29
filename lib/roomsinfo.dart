@@ -133,7 +133,7 @@ class RoomsinfoState extends State<Roomsinfo> {
 
   Future<void> _toggleDeviceStatus(String applianceId, String currentStatus) async {
     // Check if master switch is ON
-    if (RelayState.relayStates['relay10'] == 0) {
+    if (RelayState.relayStates['relay8'] == 0) {
       // If master switch is OFF, do nothing and show a message
       if (mounted) {
          ScaffoldMessenger.of(context).showSnackBar(
@@ -272,7 +272,7 @@ class RoomsinfoState extends State<Roomsinfo> {
                           final int iconCodePoint = (deviceData['icon'] is int) ? deviceData['icon'] as int : Icons.devices.codePoint;
 
                           // Get the master switch state from RelayState
-                          final bool masterSwitchIsOn = RelayState.relayStates['relay10'] == 1;
+                          final bool masterSwitchIsOn = RelayState.relayStates['relay8'] == 1;
 
                           return GestureDetector(
                             onTap: () {
