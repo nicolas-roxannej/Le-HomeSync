@@ -21,8 +21,6 @@ Device State Data:
 - relay6: int
 - relay7: int
 - relay8: int
-- relay9: int
-- relay10: int
 
 Notification Settings Data:
 - notifications: Map<String, bool>

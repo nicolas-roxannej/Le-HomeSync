@@ -160,7 +160,7 @@ class DevicesScreenState extends State<DevicesScreen> {
           });
     }
 
-    // Listen for master relay state change (relay10) directly under the user document
+    // Listen for master relay state change (relay8) directly under the user document
     FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
@@ -168,11 +168,11 @@ class DevicesScreenState extends State<DevicesScreen> {
         .listen((snapshot) {
           if (snapshot.exists && snapshot.data() != null) {
             final data = snapshot.data()!;
-            if (data['relay10'] != null) {
+            if (data['relay8'] != null) {
               setState(() {
                 // Convert string state ('ON'/'OFF') to integer (1/0)
-                RelayState.relayStates['relay10'] = data['relay10'] == 'ON' ? 1 : 0;
-                _masterPowerButtonState = RelayState.relayStates['relay10'] == 1;
+                RelayState.relayStates['relay8'] = data['relay8'] == 'ON' ? 1 : 0;
+                _masterPowerButtonState = RelayState.relayStates['relay8'] == 1;
               });
             }
           }
@@ -232,10 +232,10 @@ class DevicesScreenState extends State<DevicesScreen> {
   }
 
   void _updateMasterPowerButtonVisualState() {
-    // Check if relay10 state is available
-    int masterState = RelayState.relayStates['relay10'] ?? 0;
+    // Check if relay8 state is available
+    int masterState = RelayState.relayStates['relay8'] ?? 0;
 
-    // Master power button shows "ON" if relay10 is ON
+    // Master power button shows "ON" if relay8 is ON
     if (mounted) {
       setState(() {
         _masterPowerButtonState = masterState == 1;
@@ -253,25 +253,25 @@ class DevicesScreenState extends State<DevicesScreen> {
   }
 
   void _toggleMasterPower() async {
-    // Toggle the master relay (relay10)
-    int currentMasterState = RelayState.relayStates['relay10'] ?? 0;
+    // Toggle the master relay (relay8)
+    int currentMasterState = RelayState.relayStates['relay8'] ?? 0;
     int newMasterState = 1 - currentMasterState; // Toggle between 0 and 1
 
     // Update local state immediately for responsiveness
     setState(() {
-      RelayState.relayStates['relay10'] = newMasterState;
+      RelayState.relayStates['relay8'] = newMasterState;
       _masterPowerButtonState = newMasterState == 1;
     });
 
-    // Update Firebase RTDB for relay10
+    // Update Firebase RTDB for relay8
     try {
-      // Update relay10 field directly under user document with string state
+      // Update relay8 field directly under user document with string state
       final userUid = FirebaseAuth.instance.currentUser!.uid;
       final newMasterStateString = newMasterState == 1 ? 'ON' : 'OFF';
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userUid)
-          .update({'relay10': newMasterStateString});
+          .update({'relay8': newMasterStateString});
 
       // If turning OFF master switch, turn off all devices
       if (newMasterState == 0) {
@@ -321,7 +321,7 @@ class DevicesScreenState extends State<DevicesScreen> {
 
   Future<void> _toggleIndividualDevice(String applianceName, String currentStatus) async {
     // Check if master switch is OFF
-    if (RelayState.relayStates['relay10'] == 0) {
+    if (RelayState.relayStates['relay8'] == 0) {
       // If master switch is OFF, do nothing
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Cannot toggle device when master power is OFF")),
@@ -621,7 +621,7 @@ class DevicesScreenState extends State<DevicesScreen> {
                             padding: const EdgeInsets.only(left: 8.0),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: RelayState.relayStates['relay10'] == 1 ? Colors.black : Colors.grey, // Use relay10 state
+                                color: RelayState.relayStates['relay8'] == 1 ? Colors.black : Colors.grey, // Use relay8 state
                                 borderRadius: BorderRadius.circular(24),
                               ),
                               child: IconButton(
@@ -678,7 +678,7 @@ class DevicesScreenState extends State<DevicesScreen> {
                                 return GestureDetector(
                                   onTap: () {
                                     // Only allow toggling if master switch is ON
-                                    if (RelayState.relayStates['relay10'] == 1) {
+                                    if (RelayState.relayStates['relay8'] == 1) {
                                       _toggleIndividualDevice(applianceName, applianceStatus); // Use applianceName as identifier
                                     } else {
                                        ScaffoldMessenger.of(context).showSnackBar(
@@ -698,7 +698,7 @@ class DevicesScreenState extends State<DevicesScreen> {
                                   child: Container(
                                     decoration: BoxDecoration(
                                       // Change color based on individual state AND master switch state
-                                      color: RelayState.relayStates['relay10'] == 1 && isOn ? Colors.black : Colors.white,
+                                      color: RelayState.relayStates['relay8'] == 1 && isOn ? Colors.black : Colors.white,
                                       borderRadius: BorderRadius.circular(10),
                                       boxShadow: [
                                         BoxShadow(
@@ -714,10 +714,10 @@ class DevicesScreenState extends State<DevicesScreen> {
                                       roomName: roomName,
                                       deviceType: deviceType,
                                       // Pass individual state, but consider master switch for visual
-                                      isOn: RelayState.relayStates['relay10'] == 1 && isOn,
+                                      isOn: RelayState.relayStates['relay8'] == 1 && isOn,
                                       icon: _getIconFromCodePoint(iconCodePoint),
                                       applianceStatus: applianceStatus, // Pass applianceStatus
-                                      masterSwitchIsOn: RelayState.relayStates['relay10'] == 1, // Pass master switch state
+                                      masterSwitchIsOn: RelayState.relayStates['relay8'] == 1, // Pass master switch state
                                       applianceId: deviceDoc.id, // Pass applianceId
                                     ),
                                   ),
@@ -911,6 +911,9 @@ class DevicesScreenState extends State<DevicesScreen> {
       ],
     );
   }
+}
+
+class ON {
 }
 
 // DeviceCard widget with updated UI architecture
