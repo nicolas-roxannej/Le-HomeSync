@@ -55,10 +55,10 @@ class EmailOTPService {
       // Send email
       await _sendEmail(userEmail, otp);
 
-      print('✅ OTP sent successfully to $userEmail');
+      print('OTP sent successfully to $userEmail');
       return otp; // Return for development mode display
     } catch (e) {
-      print('❌ Error sending OTP: $e');
+      print('Error sending OTP: $e');
       throw Exception('Failed to send OTP: ${e.toString()}');
     }
   }
@@ -135,15 +135,15 @@ class EmailOTPService {
 
       // Send email
       final sendReport = await send(message, smtpServer);
-      print('✅ Email sent: ${sendReport.toString()}');
+      print('Email sent: ${sendReport.toString()}');
     } on MailerException catch (e) {
-      print('❌ Email sending failed: ${e.message}');
+      print('Email sending failed: ${e.message}');
       for (var p in e.problems) {
         print('Problem: ${p.code}: ${p.msg}');
       }
       throw Exception('Failed to send email: ${e.message}');
     } catch (e) {
-      print('❌ Unexpected error sending email: $e');
+      print('Unexpected error sending email: $e');
       throw Exception('Failed to send email: ${e.toString()}');
     }
   }
@@ -190,14 +190,14 @@ class EmailOTPService {
             .doc('current')
             .update({'isUsed': true});
 
-        print('✅ OTP verified successfully');
+        print(' OTP verified successfully');
         return true;
       } else {
-        print('❌ Invalid OTP entered');
+        print('Invalid OTP entered');
         return false;
       }
     } catch (e) {
-      print('❌ Error verifying OTP: $e');
+      print('Error verifying OTP: $e');
       throw Exception(e.toString());
     }
   }

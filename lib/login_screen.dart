@@ -176,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
         });
 
         _showSuccessMessage(
-          '✅ OTP sent to $_userEmail!',
+          'OTP sent to $_userEmail!',
         );
       }
     } on FirebaseAuthException catch (e) {
