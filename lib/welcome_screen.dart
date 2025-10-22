@@ -13,38 +13,45 @@ class WelcomeScreen extends StatelessWidget {
     return Scaffold(
       body: Container(
         color: Color(0xFFE9E7E6), // whole frame
-        padding: EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.symmetric(horizontal: 20,),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           
+          
           children: [ // logo
-            Image.asset('assets/homesync_logo.png', height: 137, width: 149),
-            SizedBox(height: 110),
+          Transform.translate( // title na homesync
+               offset: Offset(0, -40),
+           child: Image.asset('assets/homebg.png', height: 250, width: 149),
+          ),
+            SizedBox(height: 5),
             Column(
               children: [
 
                 Transform.translate( // title na homesync
-                offset: Offset(1, -130),
+                offset: Offset(1, -125),
                 child: Text(
                   'HOMESYNC',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.instrumentSerif(
+                  style: GoogleFonts.mPlusRounded1c(
                   textStyle: TextStyle(fontSize: 25,),
+                  fontWeight: FontWeight.bold,
                   color: Colors.black, 
+                  
+             
                   ),
                 ),
                 ),
             
                 Transform.translate( // description 
-                offset: Offset(1, -125),
+                offset: Offset(1, -120),
                 child:Text(
                   'A Connected Home to a Connected Life',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     color: Colors.black,
-                    fontWeight: FontWeight.bold, 
+                    fontWeight: FontWeight.w500, 
                   ),
                 ),
                 ),
@@ -52,7 +59,7 @@ class WelcomeScreen extends StatelessWidget {
             ),
 
             Transform.translate( // description 2
-                offset: Offset(2, -120),
+                offset: Offset(2, -115),
                  child: SizedBox(
                  width: 220,
                 child:Text(
@@ -67,7 +74,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
       
             Transform.translate( //btn Login
-            offset: Offset(2.5, -75),
+            offset: Offset(2.5, -80),
             child: ElevatedButton(
               onPressed: () {
                 Navigator.pushNamed(context, '/login');
@@ -100,7 +107,7 @@ class WelcomeScreen extends StatelessWidget {
       
 
 Transform.translate( // btn sign up
-  offset: Offset(2.5, -40),
+  offset: Offset(2.5, -50),
             child: OutlinedButton(
               onPressed: () {
                 Navigator.pushNamed(context, '/signup');

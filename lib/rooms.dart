@@ -8,9 +8,8 @@ import 'package:homesync/room_data_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// TODO: Replace 'YOUR_API_KEY' with your actual OpenWeatherMap API key
-const String _apiKey = 'd542f2e03ea5728e77e367f19c0fb675'; // Placeholder for Weather API Key
-const String _cityName = 'Manila'; // Default city for weather
+const String _apiKey = 'd542f2e03ea5728e77e367f19c0fb675'; 
+const String _cityName = 'Manila'; 
 
 class Rooms extends StatefulWidget {
   const Rooms({super.key});
@@ -56,7 +55,6 @@ class RoomsState extends State<Rooms> {
       print("Weather API key is a placeholder. Please replace it.");
       if (mounted) {
         setState(() {
-          // Keep _currentWeather as null to show placeholder
         });
       }
       return;
@@ -377,7 +375,7 @@ class RoomsState extends State<Rooms> {
         print('Room not found for deletion: $roomName');
       }
 
-      // Also delete all devices associated with the room from the user's appliances subcollection
+      //  delete all devices associated with the room from the user's appliances subcollection
       final deviceQuerySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
@@ -431,7 +429,7 @@ class RoomsState extends State<Rooms> {
         print('Room not found for editing: $oldName');
       }
 
-      // Also update the roomName field in all associated devices in the user's appliances subcollection
+      // update the roomName field in all associated devices in the user's appliances subcollection
       final deviceQuerySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
@@ -606,23 +604,21 @@ class RoomsState extends State<Rooms> {
     );
   }
 
-  /// Enhanced Flyout Menu with tap-to-exit functionality
+ //flyout
   void _showFlyout(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     showModalBottomSheet(
       isScrollControlled: true,
-      isDismissible: false, // Disable sliding down to close
-      enableDrag: false, // Disable drag to dismiss
+      isDismissible: false, 
+      enableDrag: false, 
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return GestureDetector(
-          // Tap anywhere outside the flyout to close
           onTap: () => Navigator.of(context).pop(),
           child: Container(
             color: Colors.transparent,
             child: GestureDetector(
-              // Prevent taps on the flyout content from closing it
               onTap: () {},
               child: Align(
                 alignment: Alignment.centerRight,
@@ -682,7 +678,7 @@ class RoomsState extends State<Rooms> {
                           leading: const Icon(Icons.person, color: Colors.white, size: 35),
                           title: Text('Profile', style: GoogleFonts.inter(color: Colors.white)),
                           onTap: () {
-                            Navigator.pop(context); // Close flyout first
+                            Navigator.pop(context); 
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => ProfileScreen()),
@@ -695,7 +691,7 @@ class RoomsState extends State<Rooms> {
                           leading: const Icon(Icons.notifications, color: Colors.white, size: 35),
                           title: Text('Notification', style: GoogleFonts.inter(color: Colors.white)),
                           onTap: () {
-                            Navigator.pop(context); // Close flyout first
+                            Navigator.pop(context); 
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => NotificationScreen()),
@@ -711,7 +707,7 @@ class RoomsState extends State<Rooms> {
                           ),
                           title: Text('Logout', style: GoogleFonts.inter(color: Colors.white)),
                           onTap: () async {
-                            Navigator.pop(context); // Close flyout first
+                            Navigator.pop(context); 
                             await FirebaseAuth.instance.signOut();
                             Navigator.of(context).pushAndRemoveUntil(
                               MaterialPageRoute(builder: (context) => WelcomeScreen()),
@@ -773,7 +769,7 @@ class RoomsState extends State<Rooms> {
     );
   }
   
-  // Helper method to build the rooms list
+  // Helper method roomlist
   Widget _buildRoomsList(List<RoomItem> rooms) {
     return ListView.separated(
       itemCount: rooms.length,
