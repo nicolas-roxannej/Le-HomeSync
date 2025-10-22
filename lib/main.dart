@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-// Firebase config
+// Firebase config and screen
 import 'firebase_options.dart';
-
-// Screens
 import 'package:homesync/welcome_screen.dart';
 import 'package:homesync/signup_screen.dart';
 import 'package:homesync/login_screen.dart';
@@ -22,15 +20,15 @@ import 'package:homesync/schedule.dart';
 import 'package:homesync/deviceinfo.dart';
 import 'package:homesync/editdevice.dart';
 import 'package:homesync/profile_screen.dart';
-import 'package:homesync/device_usage.dart';
+//import 'package:homesync/device_usage.dart';
 import 'package:homesync/notification_manager.dart';
 import 'package:homesync/notification_test_screen.dart';
-import 'package:homesync/history.dart';
+import 'package:homesync/OptimizedDeviceHistoryScreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ Corrected spelling: Firebase.initializeApp()
+  // Firebase.initializeApp()
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -58,7 +56,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => WelcomeScreen(),
         '/signup': (context) => SignUpScreen(),
         '/login': (context) => LoginScreen(),
-        '/history': (context) => DeviceHistoryScreen(),
+        '/history': (context) => OptimizedDeviceHistoryScreen(),
         '/forgot-password': (context) => ForgotPasswordScreen(),
         '/homepage': (context) => HomepageScreen(),
         '/devices': (context) => DevicesScreen(),
@@ -90,7 +88,7 @@ class MyApp extends StatelessWidget {
           );
         },
         '/profile': (context) => ProfileScreen(),
-        '/deviceusage': (context) {
+        /* '/deviceusage': (context) {
           final args = ModalRoute.of(context)?.settings.arguments
               as Map<String, dynamic>?;
 
@@ -103,14 +101,18 @@ class MyApp extends StatelessWidget {
               applianceId == "DEFAULT_APPLIANCE_ID") {
             debugPrint(
                 "⚠️ Warning: Navigating to /deviceusage without proper userId or applianceId arguments.");
-          }
+          } */
 
-          return DeviceUsage(
+          /* return DeviceUsage(
             userId: userId,
-            applianceId: applianceId,
+            applianceId: applianceId, */
+      
+      }
           );
-        },
-      },
-    );
   }
 }
+        /* },
+      }, */
+    /* );
+  }
+} */

@@ -19,7 +19,6 @@ class ElectricityUsageChart extends StatefulWidget {
   const ElectricityUsageChart({
     super.key, 
     required this.selectedPeriod,
-    // required this.userId, // userId will be fetched from FirebaseAuth
   });
 
   @override
@@ -56,7 +55,6 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
     }
   }
 
-  // to get month name, week of month 
   String _getMonthName(int month) {
     const monthNames = ['', 'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
     return monthNames[month].toLowerCase();
@@ -75,6 +73,60 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
     return snapshot.docs.map((doc) => doc.id).toList();
   }
 
+  // Calculate real-time usage for devices that are currently ON
+  Future<Map<String, double>> _calculateCurrentSessionUsage(String userId, List<String> applianceIds, DateTime targetDate) async {
+    Map<String, double> currentSessionData = {'kwh': 0.0, 'cost': 0.0};
+    String targetDayStr = DateFormat('yyyy-MM-dd').format(targetDate);
+    DateTime now = DateTime.now();
+    
+    for (String applianceId in applianceIds) {
+      try {
+        DocumentSnapshot applianceDoc = await _firestore
+            .collection('users').doc(userId)
+            .collection('appliances').doc(applianceId)
+            .get();
+        
+        if (!applianceDoc.exists) continue;
+        
+        Map<String, dynamic> applianceData = applianceDoc.data() as Map<String, dynamic>;
+        String status = applianceData['applianceStatus'] ?? 'OFF';
+        
+        if (status.toLowerCase() != 'on') continue;
+        
+        Timestamp? lastToggleTime = applianceData['lastToggleTime'] as Timestamp?;
+        double wattage = (applianceData['wattage'] as num?)?.toDouble() ?? 0.0;
+        
+        if (lastToggleTime == null || wattage <= 0) continue;
+        
+        DateTime toggleTime = lastToggleTime.toDate();
+        String toggleDayStr = DateFormat('yyyy-MM-dd').format(toggleTime);
+        
+        // Only include if toggle was on the target date
+        if (toggleDayStr == targetDayStr) {
+          Duration runningTime = now.difference(toggleTime);
+          double hoursRunning = runningTime.inSeconds / 3600.0;
+          double sessionKwh = (wattage * hoursRunning) / 1000.0;
+          
+          // user's kWh rate
+          DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
+          double kwhrRate = 0.15; // Default
+          if (userDoc.exists && userDoc.data() != null) {
+            kwhrRate = ((userDoc.data() as Map<String, dynamic>)['kwhr'] as num?)?.toDouble() ?? 0.15;
+          }
+          
+          double sessionCost = sessionKwh * kwhrRate;
+          
+          currentSessionData['kwh'] = (currentSessionData['kwh'] ?? 0.0) + sessionKwh;
+          currentSessionData['cost'] = (currentSessionData['cost'] ?? 0.0) + sessionCost;
+        }
+      } catch (e) {
+        print('Error calculating current session for $applianceId: $e');
+      }
+    }
+    
+    return currentSessionData;
+  }
+
   Future<void> _fetchChartData() async {
     if (!mounted) return;
     setState(() {
@@ -91,119 +143,238 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
     final now = DateTime.now();
     List<ChartDataPoint> newPoints = [];
 
-    // IMPORTANT: This client-side aggregation can be read-intensive for many appliances.
-    // A more optimized solution would involve backend aggregation into time-series collections.
     List<String> applianceIds = await _getApplianceIds(userId);
     if (!mounted) return;
 
     try {
       switch (widget.selectedPeriod) {
-        case 'Daily': // Shows last 7 days (Sun-Sat of current week)
-          _chartTitle = 'Daily Usage (${DateFormat('MMMM dd').format(now)})';
-          DateTime firstDayOfWeek = now.subtract(Duration(days: now.weekday % 7)); // Assuming Sunday is 0 or 7
-          if (now.weekday == DateTime.sunday) { // Dart's Sunday is 7
-             firstDayOfWeek = now.subtract(Duration(days: 6)); // Adjust if Sunday is start
-          } else {
-             firstDayOfWeek = now.subtract(Duration(days: now.weekday - DateTime.monday));
-          }
+        case 'Daily':
+          _chartTitle = 'Daily Usage (This Week)';
+          DateTime firstDayOfWeek = now.subtract(Duration(days: now.weekday == DateTime.sunday ? 6 : now.weekday - 1));
 
-
-          for (int i = 0; i < 7; i++) {
-            DateTime dayToFetch = firstDayOfWeek.add(Duration(days: i));
-            String dayLabel = DateFormat('EEE').format(dayToFetch); 
-            double dailyTotalKwh = 0;
-            double dailyTotalCost = 0;
-            List<Future<DocumentSnapshot>> applianceDayFutures = applianceIds.map((applianceId) {
-              String path = 'users/$userId/appliances/$applianceId/yearly_usage/${dayToFetch.year}/monthly_usage/${_getMonthName(dayToFetch.month)}_usage/week_usage/week${_getWeekOfMonth(dayToFetch)}_usage/day_usage/${DateFormat('yyyy-MM-dd').format(dayToFetch)}';
-              return _firestore.doc(path).get();
-            }).toList();
-
-            List<DocumentSnapshot> applianceDaySnaps = await Future.wait(applianceDayFutures);
-
-            for (final docSnap in applianceDaySnaps) {
-              if (docSnap.exists && docSnap.data() != null) {
-                final data = docSnap.data() as Map<String, dynamic>;
-                dailyTotalKwh += (data['kwh'] as num?)?.toDouble() ?? 0.0;
-                dailyTotalCost += (data['kwhrcost'] as num?)?.toDouble() ?? 0.0;
+          // daily
+          final dailyResults = await Future.wait(
+            List.generate(7, (i) async {
+              DateTime dayToFetch = firstDayOfWeek.add(Duration(days: i));
+              String dayLabel = DateFormat('EEE').format(dayToFetch);
+              
+              // Fetch from all appliances 
+              final applianceResults = await Future.wait(
+                applianceIds.map((applianceId) async {
+                  String path = 'users/$userId/appliances/$applianceId/yearly_usage/${dayToFetch.year}/monthly_usage/${_getMonthName(dayToFetch.month)}_usage/week_usage/week${_getWeekOfMonth(dayToFetch)}_usage/day_usage/${DateFormat('yyyy-MM-dd').format(dayToFetch)}';
+                  DocumentSnapshot docSnap = await _firestore.doc(path).get();
+                  
+                  if (docSnap.exists && docSnap.data() != null) {
+                    final data = docSnap.data() as Map<String, dynamic>;
+                    return {
+                      'kwh': (data['kwh'] as num?)?.toDouble() ?? 0.0,
+                      'cost': (data['kwhrcost'] as num?)?.toDouble() ?? 0.0,
+                    };
+                  }
+                  return {'kwh': 0.0, 'cost': 0.0};
+                })
+              );
+              
+              double dailyTotalKwh = applianceResults.fold(0.0, (sum, result) => sum + result['kwh']!);
+              double dailyTotalCost = applianceResults.fold(0.0, (sum, result) => sum + result['cost']!);
+              
+              // Add current session (today)
+              if (DateFormat('yyyy-MM-dd').format(dayToFetch) == DateFormat('yyyy-MM-dd').format(now)) {
+                Map<String, double> currentSession = await _calculateCurrentSessionUsage(userId, applianceIds, dayToFetch);
+                dailyTotalKwh += currentSession['kwh'] ?? 0.0;
+                dailyTotalCost += currentSession['cost'] ?? 0.0;
               }
-            }
-            newPoints.add(ChartDataPoint(xIndex: i, xLabel: dayLabel, kwh: dailyTotalKwh, cost: dailyTotalCost));
-          }
+              
+              return ChartDataPoint(xIndex: i, xLabel: dayLabel, kwh: dailyTotalKwh, cost: dailyTotalCost);
+            })
+          );
+          
+          newPoints = dailyResults;
           break;
 
         case 'Weekly': 
           _chartTitle = 'Weekly Usage (${DateFormat('MMMM yyyy').format(now)})';
           int year = now.year;
           int month = now.month;
-          // Calculate number of weeks in the month (approx 4 or 5)
-          for (int weekNum = 1; weekNum <= 5; weekNum++) { // Max 5 weeks for simplicity
-            String weekLabel = 'W$weekNum';
-            double weeklyTotalKwh = 0;
-            double weeklyTotalCost = 0;
-
-            // Parallel fetch for all appliances for this specific week
-            List<Future<DocumentSnapshot>> applianceWeekFutures = applianceIds.map((applianceId) {
-              String path = 'users/$userId/appliances/$applianceId/yearly_usage/$year/monthly_usage/${_getMonthName(month)}_usage/week_usage/week${weekNum}_usage';
-              return _firestore.doc(path).get();
-            }).toList();
-
-            List<DocumentSnapshot> applianceWeekSnaps = await Future.wait(applianceWeekFutures);
-
-            for (final docSnap in applianceWeekSnaps) {
-              if (docSnap.exists && docSnap.data() != null) {
-                final data = docSnap.data() as Map<String, dynamic>;
-                weeklyTotalKwh += (data['kwh'] as num?)?.toDouble() ?? 0.0;
-                weeklyTotalCost += (data['kwhrcost'] as num?)?.toDouble() ?? 0.0;
+          
+          // all weeks
+          final weeklyResults = await Future.wait(
+            List.generate(5, (weekNum) async {
+              String weekLabel = 'W${weekNum + 1}';
+              
+              // Process all appliances 
+              final applianceResults = await Future.wait(
+                applianceIds.map((applianceId) async {
+                  String weekPath = 'users/$userId/appliances/$applianceId/yearly_usage/$year/monthly_usage/${_getMonthName(month)}_usage/week_usage/week${weekNum + 1}_usage';
+                  QuerySnapshot dayDocs = await _firestore.collection('$weekPath/day_usage').get();
+                  
+                  double weekKwh = 0.0;
+                  double weekCost = 0.0;
+                  
+                  for (var dayDoc in dayDocs.docs) {
+                    if (dayDoc.exists && dayDoc.data() != null) {
+                      final data = dayDoc.data() as Map<String, dynamic>;
+                      weekKwh += (data['kwh'] as num?)?.toDouble() ?? 0.0;
+                      weekCost += (data['kwhrcost'] as num?)?.toDouble() ?? 0.0;
+                    }
+                  }
+                  
+                  return {'kwh': weekKwh, 'cost': weekCost};
+                })
+              );
+              
+              double weeklyTotalKwh = applianceResults.fold(0.0, (sum, result) => sum + result['kwh']!);
+              double weeklyTotalCost = applianceResults.fold(0.0, (sum, result) => sum + result['cost']!);
+              
+              //  current week session
+              if (year == now.year && month == now.month && (weekNum + 1) == _getWeekOfMonth(now)) {
+                Map<String, double> currentSession = await _calculateCurrentSessionUsage(userId, applianceIds, now);
+                weeklyTotalKwh += currentSession['kwh'] ?? 0.0;
+                weeklyTotalCost += currentSession['cost'] ?? 0.0;
               }
-            }
-
-            // Only add if there's data or it's a valid week for the month
-            // (crude check to avoid empty weeks at the end of short months if no data)
-            bool isPotentiallyValidWeek = weekNum <= (DateUtils.getDaysInMonth(year, month) / 7.0).ceil();
-            if (weeklyTotalKwh > 0 || weeklyTotalCost > 0 || isPotentiallyValidWeek) {
-                 newPoints.add(ChartDataPoint(xIndex: weekNum - 1, xLabel: weekLabel, kwh: weeklyTotalKwh, cost: weeklyTotalCost));
+              
+              return {
+                'point': ChartDataPoint(xIndex: weekNum, xLabel: weekLabel, kwh: weeklyTotalKwh, cost: weeklyTotalCost),
+                'hasData': weeklyTotalKwh > 0 || weeklyTotalCost > 0,
+              };
+            })
+          );
+          
+       
+          for (var result in weeklyResults) {
+            bool isPotentiallyValid = (result['point'] as ChartDataPoint).xIndex < (DateUtils.getDaysInMonth(year, month) / 7.0).ceil();
+            if (result['hasData'] == true || isPotentiallyValid) {
+              newPoints.add(result['point'] as ChartDataPoint);
             }
           }
-          // Ensure we don't have too many empty weeks if month is short and has no data for later weeks
-          // This logic might need refinement based on how strictly "5 weeks" should be shown
-          // For now, if the last point is W5 and has no data, and it's beyond the month's actual weeks, remove it.
+          
+         
           if (newPoints.isNotEmpty && newPoints.last.xLabel == 'W5' && newPoints.last.kwh == 0 && newPoints.last.cost == 0) {
-            if ( (DateUtils.getDaysInMonth(year, month) / 7.0).ceil() < 5) {
-                newPoints.removeLast();
+            if ((DateUtils.getDaysInMonth(year, month) / 7.0).ceil() < 5) {
+              newPoints.removeLast();
             }
           }
           break;
 
-        case 'Monthly': // Shows months of current year
-        case 'Yearly': // For now, Yearly will also show monthly breakdown of current year
-          _chartTitle = widget.selectedPeriod == 'Yearly' ? 'Monthly Usage (${now.year})' : 'Monthly Usage (${now.year})';
-          for (int monthNum = 1; monthNum <= 12; monthNum++) {
-            String monthLabel = DateFormat('MMM').format(DateTime(now.year, monthNum));
-            double monthlyTotalKwh = 0;
-            double monthlyTotalCost = 0;
-
-            // Parallel fetch for all appliances for this specific month
-            List<Future<DocumentSnapshot>> applianceMonthFutures = applianceIds.map((applianceId) {
-              String path = 'users/$userId/appliances/$applianceId/yearly_usage/${now.year}/monthly_usage/${_getMonthName(monthNum)}_usage';
-              return _firestore.doc(path).get();
-            }).toList();
-
-            List<DocumentSnapshot> applianceMonthSnaps = await Future.wait(applianceMonthFutures);
-
-            for (final docSnap in applianceMonthSnaps) {
-              if (docSnap.exists && docSnap.data() != null) {
-                final data = docSnap.data() as Map<String, dynamic>;
-                monthlyTotalKwh += (data['kwh'] as num?)?.toDouble() ?? 0.0;
-                monthlyTotalCost += (data['kwhrcost'] as num?)?.toDouble() ?? 0.0;
+        case 'Monthly':
+          _chartTitle = 'Current Monthly Usage (${now.year})';
+          
+         //  12 months
+          final monthlyResults = await Future.wait(
+            List.generate(12, (monthIndex) async {
+              int monthNum = monthIndex + 1;
+              String monthLabel = DateFormat('MMM').format(DateTime(now.year, monthNum));
+              
+              // all appliance
+              final applianceResults = await Future.wait(
+                applianceIds.map((applianceId) async {
+                  String monthPath = 'users/$userId/appliances/$applianceId/yearly_usage/${now.year}/monthly_usage/${_getMonthName(monthNum)}_usage';
+                  QuerySnapshot weekDocs = await _firestore.collection('$monthPath/week_usage').get();
+                  
+                  // all weeks
+                  final weekResults = await Future.wait(
+                    weekDocs.docs.map((weekDoc) async {
+                      QuerySnapshot dayDocs = await weekDoc.reference.collection('day_usage').get();
+                      
+                      return dayDocs.docs.fold<Map<String, double>>({'kwh': 0.0, 'cost': 0.0}, (sum, dayDoc) {
+                        if (dayDoc.exists && dayDoc.data() != null) {
+                          final data = dayDoc.data() as Map<String, dynamic>;
+                          return {
+                            'kwh': sum['kwh']! + ((data['kwh'] as num?)?.toDouble() ?? 0.0),
+                            'cost': sum['cost']! + ((data['kwhrcost'] as num?)?.toDouble() ?? 0.0),
+                          };
+                        }
+                        return sum;
+                      });
+                    })
+                  );
+                  
+                  return weekResults.fold<Map<String, double>>({'kwh': 0.0, 'cost': 0.0}, (sum, weekData) {
+                    return {
+                      'kwh': sum['kwh']! + weekData['kwh']!,
+                      'cost': sum['cost']! + weekData['cost']!,
+                    };
+                  });
+                })
+              );
+              
+              double monthlyTotalKwh = applianceResults.fold(0.0, (sum, result) => sum + result['kwh']!);
+              double monthlyTotalCost = applianceResults.fold(0.0, (sum, result) => sum + result['cost']!);
+              
+              //  current month session
+              if (monthNum == now.month && now.year == now.year) {
+                Map<String, double> currentSession = await _calculateCurrentSessionUsage(userId, applianceIds, now);
+                monthlyTotalKwh += currentSession['kwh'] ?? 0.0;
+                monthlyTotalCost += currentSession['cost'] ?? 0.0;
               }
-            }
-            newPoints.add(ChartDataPoint(xIndex: monthNum - 1, xLabel: monthLabel, kwh: monthlyTotalKwh, cost: monthlyTotalCost));
-            }
+              
+              return ChartDataPoint(xIndex: monthIndex, xLabel: monthLabel, kwh: monthlyTotalKwh, cost: monthlyTotalCost);
+            })
+          );
+          
+          newPoints = monthlyResults;
+          break;
+
+        case 'Yearly':
+          _chartTitle = 'Current Yearly Usage (${now.year})';
+          
+          // all months
+          final yearlyResults = await Future.wait(
+            List.generate(12, (monthIndex) async {
+              int monthNum = monthIndex + 1;
+              String monthLabel = DateFormat('MMM').format(DateTime(now.year, monthNum));
+              
+              // all appliances
+              final applianceResults = await Future.wait(
+                applianceIds.map((applianceId) async {
+                  String monthPath = 'users/$userId/appliances/$applianceId/yearly_usage/${now.year}/monthly_usage/${_getMonthName(monthNum)}_usage';
+                  QuerySnapshot weekDocs = await _firestore.collection('$monthPath/week_usage').get();
+                  
+                  // all weeeks
+                  final weekResults = await Future.wait(
+                    weekDocs.docs.map((weekDoc) async {
+                      QuerySnapshot dayDocs = await weekDoc.reference.collection('day_usage').get();
+                      
+                      return dayDocs.docs.fold<Map<String, double>>({'kwh': 0.0, 'cost': 0.0}, (sum, dayDoc) {
+                        if (dayDoc.exists && dayDoc.data() != null) {
+                          final data = dayDoc.data() as Map<String, dynamic>;
+                          return {
+                            'kwh': sum['kwh']! + ((data['kwh'] as num?)?.toDouble() ?? 0.0),
+                            'cost': sum['cost']! + ((data['kwhrcost'] as num?)?.toDouble() ?? 0.0),
+                          };
+                        }
+                        return sum;
+                      });
+                    })
+                  );
+                  
+                  return weekResults.fold<Map<String, double>>({'kwh': 0.0, 'cost': 0.0}, (sum, weekData) {
+                    return {
+                      'kwh': sum['kwh']! + weekData['kwh']!,
+                      'cost': sum['cost']! + weekData['cost']!,
+                    };
+                  });
+                })
+              );
+              
+              double monthlyTotalKwh = applianceResults.fold(0.0, (sum, result) => sum + result['kwh']!);
+              double monthlyTotalCost = applianceResults.fold(0.0, (sum, result) => sum + result['cost']!);
+              //current month session
+              if (monthNum == now.month && now.year == now.year) {
+                Map<String, double> currentSession = await _calculateCurrentSessionUsage(userId, applianceIds, now);
+                monthlyTotalKwh += currentSession['kwh'] ?? 0.0;
+                monthlyTotalCost += currentSession['cost'] ?? 0.0;
+              }
+              
+              return ChartDataPoint(xIndex: monthIndex, xLabel: monthLabel, kwh: monthlyTotalKwh, cost: monthlyTotalCost);
+            })
+          );
+          
+          newPoints = yearlyResults;
           break;
       }
     } catch (e) {
       print("Error fetching chart data: $e");
-      // Handle error state if necessary
     }
 
     if (!mounted) return;
@@ -237,7 +408,7 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
       barRods: [
         BarChartRodData(
           toY: value,
-          color: barColor, // Use alternating colors
+          color: barColor,
           width: 15,
           borderRadius: BorderRadius.circular(4),
         ),
@@ -254,42 +425,37 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
   }
   
   Widget _getLeftTitles(double value, TitleMeta meta) {
-    if (value == meta.max || value == meta.min) { // Avoid clutter at top/bottom
+    if (value == meta.max || value == meta.min) {
       return const Text('');
     }
-    // Show fewer labels if interval is small to prevent overlap
-    if (meta.appliedInterval < 1 && value % 1 != 0) { // if interval is decimal, only show integers
-        if(value != value.floor()){
-             return const Text('');
-        }
-    } else if (meta.appliedInterval < 5 && value % 2 != 0 && value != 0) { // if interval is small, skip some labels
-        // return const Text(''); // Decided to show all for now, can be adjusted
+    if (meta.appliedInterval < 1 && value % 1 != 0) {
+      if(value != value.floor()){
+        return const Text('');
+      }
     }
 
     return Text(meta.formattedValue, style: const TextStyle(fontSize: 10, color: Colors.black54));
   }
-
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_chartDataPoints.isEmpty && ! _isLoading) {
-        return Center(child: Text('No usage data available for ${widget.selectedPeriod} period.'));
+    if (_chartDataPoints.isEmpty && !_isLoading) {
+      return Center(child: Text('No usage data available for ${widget.selectedPeriod} period.'));
     }
-
 
     List<BarChartGroupData> barGroups = [];
     for(var point in _chartDataPoints) {
-        barGroups.add(
-            _generateBarGroup(
-                point.xIndex,
-                _displayMode == 'kWh' ? point.kwh : point.cost
-            )
-        );
+      barGroups.add(
+        _generateBarGroup(
+          point.xIndex,
+          _displayMode == 'kWh' ? point.kwh : point.cost
+        )
+      );
     }
-     _updateMaxY(); // Recalculate maxY when displayMode changes
+    _updateMaxY();
 
     return Column(
       children: [
@@ -299,7 +465,7 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
           onPressed: () {
             setState(() {
               _displayMode = _displayMode == 'kWh' ? 'cost' : 'kWh';
-              _updateMaxY(); // Update maxY based on new display mode
+              _updateMaxY();
             });
           },
           style: ElevatedButton.styleFrom(
@@ -324,27 +490,21 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       final point = _chartDataPoints[group.x.toInt()];
                       final val = _displayMode == 'kWh' ? point.kwh : point.cost;
-                      final unit = _displayMode == 'kWh' ? 'kWh' : (_displayMode == 'cost' ? '₱' : ''); // Use ₱ for cost
+                      final unit = _displayMode == 'kWh' ? 'kWh' : '₱';
                       
                       String text = '${val.toStringAsFixed(2)} $unit';
-                      // The example image shows "14.312 €". If you want 3 decimal places for cost:
-                      // if (_displayMode == 'cost') {
-                      //   text = '${val.toStringAsFixed(3)} $unit';
-                      // }
-
 
                       return BarTooltipItem(
                         text,
                         const TextStyle(
-                          color: Colors.white, // White text
+                          color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
                       );
                     },
                     tooltipPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    tooltipMargin: 8, // Margin between the bar and the tooltip
-                    // tooltipDirection: TooltipDirection.top, // Ensures tooltip is above the bar
+                    tooltipMargin: 8,
                   ),
                 ),
                 titlesData: FlTitlesData(
@@ -353,15 +513,15 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
                     sideTitles: SideTitles(
                       showTitles: true, 
                       getTitlesWidget: _getBottomTitles, 
-                      reservedSize: 30, // Increased reserved size for potentially longer labels
+                      reservedSize: 30,
                     )
                   ),
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true, 
                       getTitlesWidget: _getLeftTitles, 
-                      reservedSize: 42, // Increased reserved size
-                      interval: null, // Let fl_chart calculate automatically
+                      reservedSize: 42,
+                      interval: null,
                     )
                   ),
                   rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -373,8 +533,8 @@ class _ElectricityUsageChartState extends State<ElectricityUsageChart> {
                 gridData: FlGridData(
                   show: true, 
                   drawVerticalLine: false, 
-                  horizontalInterval: null, // Let fl_chart calculate automatically
-                   getDrawingHorizontalLine: (value) {
+                  horizontalInterval: null,
+                  getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: Colors.black.withOpacity(0.2), 
                       strokeWidth: 0.6,

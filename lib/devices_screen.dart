@@ -372,12 +372,17 @@ class DevicesScreenState extends State<DevicesScreen> {
       }
 
       print("Updating appliance status in Firestore");
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser!.uid)
-          .collection('appliances')
-          .doc(deviceDoc.id)
-          .update({'applianceStatus': newStatus});
+      Map<String, dynamic> updateData = {
+  'applianceStatus': newStatus,
+  'lastToggleTime': FieldValue.serverTimestamp(),
+};
+
+await FirebaseFirestore.instance
+    .collection('users')
+    .doc(FirebaseAuth.instance.currentUser!.uid)
+    .collection('appliances')
+    .doc(deviceDoc.id)
+    .update(updateData);
 
       print("Device $applianceName toggled successfully");
 

@@ -36,6 +36,7 @@ dev_dependencies:
 flutter:
   assets:
     - assets/homesync_logo.png
+    - assets/homebg.png
   uses-material-design: true
 
 flutter_native_splash:

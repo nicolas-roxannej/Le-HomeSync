@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+/* import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -32,7 +32,7 @@ class DeviceUsageState extends State<DeviceUsage> with SingleTickerProviderState
       margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.black,
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
          BoxShadow( 
@@ -80,8 +80,6 @@ class DeviceUsageState extends State<DeviceUsage> with SingleTickerProviderState
             ),
                            
           if (showCircle) const SizedBox(width: 10), 
-                
-          // Use Expanded with flex to prevent overflow
           Expanded(
             flex: 3,
             child: customTitle ?? Text(
@@ -94,7 +92,7 @@ class DeviceUsageState extends State<DeviceUsage> with SingleTickerProviderState
 
           const SizedBox(width: 8),
 
-          // Constrain usage container
+          // container
           Flexible(
             flex: 1,
             child: Container(
@@ -115,7 +113,7 @@ class DeviceUsageState extends State<DeviceUsage> with SingleTickerProviderState
 
           const SizedBox(width: 8),
           
-          // Constrain cost container
+          // container
           Flexible(
             flex: 1,
             child: Container(
@@ -433,4 +431,4 @@ Widget build(BuildContext context) {
     ),
   );
 }
-}
+} */
