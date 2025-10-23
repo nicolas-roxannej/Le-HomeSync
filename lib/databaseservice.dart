@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // For getting current user
+import 'package:homesync/notification_manager.dart';
 import 'dart:async';
 
 class DatabaseService {
@@ -318,6 +319,14 @@ class DatabaseService {
       print("Relay state updated for ${applianceData['relay']}");
     }
 
+    // Notify user (and persist notification) about the newly added appliance
+    try {
+      final deviceName = applianceData['applianceName'] ?? newApplianceId;
+      await NotificationManager().notifyNewDeviceFound(deviceName: deviceName, deviceType: applianceData['type'] ?? 'Appliance');
+    } catch (e) {
+      print('NotificationManager: Failed to notify about new appliance: $e');
+    }
+
     print("Appliance added with ID: $newApplianceId");
     return applianceDocRef; // Return the DocumentReference
   }
@@ -353,20 +362,20 @@ class DatabaseService {
     final oldRelay = currentApplianceData?['relay'] as String?;
     final newRelay = dataToUpdate['relay'] as String?;
     final newWattage = dataToUpdate['wattage'] ?? currentApplianceData?['wattage'] ?? 0.0;
-    final newUsagetime = dataToUpdate['usagetime'] ?? currentApplianceData?['usagetime'] ?? 0.0;
-    final newApplianceName = dataToUpdate['applianceName'] ?? currentApplianceData?['applianceName'] ?? applianceId;
+  // Compute new values (use as needed)
+  final newApplianceName = dataToUpdate['applianceName'] ?? currentApplianceData?['applianceName'] ?? applianceId;
 
 
-    // Update the appliance document
+    // Update (upsert) the appliance document using set with merge to be tolerant of missing docs
     try {
       await _firestore
           .collection('users')
           .doc(userId)
           .collection('appliances') // Target the user-specific subcollection
           .doc(applianceId)
-          .update(dataToUpdate);
+          .set(dataToUpdate, SetOptions(merge: true));
 
-      print("Updated appliance $applianceId for user $userId with data: $dataToUpdate");
+      print("Upserted appliance $applianceId for user $userId with data: $dataToUpdate");
 
       // Update relay state based on changes
       if (oldRelay != newRelay) {
@@ -378,12 +387,24 @@ class DatabaseService {
               .doc(userId)
               .collection('relay_states')
               .doc(oldRelay);
-          await oldRelayDocRef.update({
-            'assigned': null,
-            'wattage': null,
-            'state': 0, // Set the state of the old relay to OFF (assuming 0 represents OFF)
-          });
-          print("Cleared old relay state and set state to OFF for $oldRelay");
+          try {
+            // Try to update existing relay doc (preferred to delete assigned/wattage fields)
+            // Use set with merge to tolerate missing doc instead of update which fails if doc missing
+            await oldRelayDocRef.set({
+              'assigned': FieldValue.delete(),
+              'wattage': FieldValue.delete(),
+              'state': 0, // Set the state of the old relay to OFF
+            }, SetOptions(merge: true));
+            print("Cleared old relay state and set state to OFF for $oldRelay");
+          } catch (e) {
+            // If update fails (doc missing), create a minimal doc with safe defaults
+            await oldRelayDocRef.set({
+              'assigned': null,
+              'wattage': null,
+              'state': 0,
+            }, SetOptions(merge: true));
+            print("Old relay doc $oldRelay missing; created fallback with state OFF");
+          }
         }
 
         // Set new relay state
@@ -393,12 +414,20 @@ class DatabaseService {
               .doc(userId)
               .collection('relay_states')
               .doc(newRelay);
+          // Use set with merge to create or update the relay doc safely
           await newRelayDocRef.set({
             'assigned': applianceId, // Use the appliance ID
             'wattage': newWattage,
           }, SetOptions(merge: true));
           print("Set new relay state for $newRelay");
         }
+      // Persist a notification about the update
+      try {
+        final deviceName = newApplianceName ?? applianceId;
+        await NotificationManager().notifySystemMaintenance(scheduledTime: '', description: '$deviceName was updated');
+      } catch (e) {
+        print('NotificationManager: Failed to notify about appliance update: $e');
+      }
       } else if (newRelay != null && newRelay.isNotEmpty && (dataToUpdate.containsKey('applianceName') || dataToUpdate.containsKey('wattage') || dataToUpdate.containsKey('usagetime'))) {
         // Relay is the same, but applianceName, wattage, or usagetime changed
         final currentRelayDocRef = _firestore
@@ -406,11 +435,11 @@ class DatabaseService {
             .doc(userId)
             .collection('relay_states')
             .doc(newRelay);
-         await currentRelayDocRef.set({
-            'assigned': applianceId, // Use the appliance ID
-            'wattage': newWattage,
-          }, SetOptions(merge: true));
-          print("Updated relay state for $newRelay with new applianceName, wattage, or usagetime");
+        await currentRelayDocRef.set({
+          'assigned': applianceId, // Use the appliance ID
+          'wattage': newWattage,
+        }, SetOptions(merge: true));
+        print("Updated relay state for $newRelay with new applianceName, wattage, or usagetime");
       }
 
 
@@ -451,6 +480,12 @@ class DatabaseService {
 
       print("Deleted appliance $applianceId for user $userId");
 
+      // Persist a notification about the deletion so it's visible in Firestore
+      try {
+        await NotificationManager().notifySystemMaintenance(scheduledTime: '', description: '$applianceId was removed from your devices');
+      } catch (e) {
+        print('NotificationManager: Failed to notify about appliance deletion: $e');
+      }
       // Clear the corresponding relay state
       if (assignedRelay != null && assignedRelay.isNotEmpty) {
         final relayDocRef = _firestore
@@ -458,10 +493,10 @@ class DatabaseService {
             .doc(userId)
             .collection('relay_states')
             .doc(assignedRelay);
-        await relayDocRef.update({
+        await relayDocRef.set({
           'assigned': FieldValue.delete(),
           'wattage': FieldValue.delete(),
-        });
+        }, SetOptions(merge: true));
         print("Cleared relay state for $assignedRelay after appliance deletion");
       }
 
@@ -517,6 +552,158 @@ class DatabaseService {
     if (userId == null) return Stream.error("User not logged in.");
     // Order by timestamp, for example
     return _firestore.collection('users').doc(userId).collection('usage').orderBy('timestamp', descending: true).snapshots();
+  }
+
+  // --- Local scheduling helper (applies schedules when app is open) ---
+  // This implements the scheduling logic from the user's attached snippet and
+  // persists a notification for each automatic ON/OFF using NotificationManager.
+  Future<void> checkAndApplySchedulesLocally() async {
+    final userId = getCurrentUserId();
+    if (userId == null) return;
+
+    final now = DateTime.now();
+    final currentDay = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][now.weekday % 7];
+    final currentTime = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+    QuerySnapshot<Map<String, dynamic>> appliancesSnapshot;
+    try {
+      appliancesSnapshot = await _firestore.collection('users').doc(userId).collection('appliances').get();
+    } catch (e) {
+      print('DatabaseService: Failed to load appliances for local scheduling: $e');
+      return;
+    }
+
+    for (var doc in appliancesSnapshot.docs) {
+      final data = doc.data();
+      final start = data['startTime'] as String? ?? '';
+      final end = data['endTime'] as String? ?? '';
+      final daysRaw = data['days'];
+      final List<String> days = (daysRaw is List) ? List<String>.from(daysRaw.map((d) => d.toString())) : <String>[];
+      final relay = data['relay']?.toString() ?? '';
+      final applianceStatus = (data['applianceStatus'] as String?) ?? 'OFF';
+
+      if (!days.contains(currentDay)) continue; // not scheduled today
+
+      final timeNow = _timeToMinutes(currentTime);
+      final startM = _timeToMinutes(start);
+      final endM = _timeToMinutes(end);
+
+      // If start/end or parsing invalid, skip
+      if (startM == -1 || endM == -1) continue;
+
+      try {
+        if (startM <= endM) {
+          // same-day window
+          if (timeNow >= startM && timeNow < endM && applianceStatus != 'ON') {
+            // turn ON
+            if (relay.isNotEmpty) {
+              await _firestore.collection('users').doc(userId).collection('relay_states').doc(relay).set({
+                'state': 1,
+                'lastUpdated': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
+            }
+            await _firestore.collection('users').doc(userId).collection('appliances').doc(doc.id).update({'applianceStatus': 'ON'});
+            print("🟢 Auto ON ${doc.id} (within schedule)");
+            // Persist notification
+            try {
+              final deviceName = data['applianceName'] ?? doc.id;
+              await NotificationManager().notifyAutomationTriggered(
+                automationName: 'LocalScheduler',
+                action: 'turned on',
+                deviceName: deviceName,
+                applianceId: doc.id,
+              );
+            } catch (e) {
+              print('DatabaseService: Failed to persist notification for auto-ON ${doc.id}: $e');
+            }
+          } else if (timeNow >= endM && applianceStatus != 'OFF') {
+            // turn OFF
+            if (relay.isNotEmpty) {
+              await _firestore.collection('users').doc(userId).collection('relay_states').doc(relay).set({
+                'state': 0,
+                'lastUpdated': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
+            }
+            await _firestore.collection('users').doc(userId).collection('appliances').doc(doc.id).update({'applianceStatus': 'OFF'});
+            print("🔴 Auto OFF ${doc.id} (schedule ended)");
+            // Persist notification
+            try {
+              final deviceName = data['applianceName'] ?? doc.id;
+              await NotificationManager().notifyAutomationTriggered(
+                automationName: 'LocalScheduler',
+                action: 'turned off',
+                deviceName: deviceName,
+                applianceId: doc.id,
+              );
+            } catch (e) {
+              print('DatabaseService: Failed to persist notification for auto-OFF ${doc.id}: $e');
+            }
+          }
+        } else {
+          // overnight window (e.g., 22:00 -> 02:00)
+          if (timeNow >= startM || timeNow < endM) {
+            if (applianceStatus != 'ON') {
+              if (relay.isNotEmpty) {
+                await _firestore.collection('users').doc(userId).collection('relay_states').doc(relay).set({
+                  'state': 1,
+                  'lastUpdated': FieldValue.serverTimestamp(),
+                }, SetOptions(merge: true));
+              }
+              await _firestore.collection('users').doc(userId).collection('appliances').doc(doc.id).update({'applianceStatus': 'ON'});
+              print("🟢 Auto ON ${doc.id} (overnight schedule)");
+              try {
+                final deviceName = data['applianceName'] ?? doc.id;
+                await NotificationManager().notifyAutomationTriggered(
+                  automationName: 'LocalScheduler',
+                  action: 'turned on',
+                  deviceName: deviceName,
+                  applianceId: doc.id,
+                );
+              } catch (e) {
+                print('DatabaseService: Failed to persist notification for overnight auto-ON ${doc.id}: $e');
+              }
+            }
+          } else {
+            if (applianceStatus != 'OFF') {
+              if (relay.isNotEmpty) {
+                await _firestore.collection('users').doc(userId).collection('relay_states').doc(relay).set({
+                  'state': 0,
+                  'lastUpdated': FieldValue.serverTimestamp(),
+                }, SetOptions(merge: true));
+              }
+              await _firestore.collection('users').doc(userId).collection('appliances').doc(doc.id).update({'applianceStatus': 'OFF'});
+              print("🔴 Auto OFF ${doc.id} (overnight schedule ended)");
+              try {
+                final deviceName = data['applianceName'] ?? doc.id;
+                await NotificationManager().notifyAutomationTriggered(
+                  automationName: 'LocalScheduler',
+                  action: 'turned off',
+                  deviceName: deviceName,
+                  applianceId: doc.id,
+                );
+              } catch (e) {
+                print('DatabaseService: Failed to persist notification for overnight auto-OFF ${doc.id}: $e');
+              }
+            }
+          }
+        }
+      } catch (e) {
+        print('DatabaseService: Error applying schedule for ${doc.id}: $e');
+      }
+    }
+  }
+
+  int _timeToMinutes(String time) {
+    if (time.isEmpty) return -1;
+    try {
+      final parts = time.split(':');
+      if (parts.length != 2) return -1;
+      final h = int.parse(parts[0]);
+      final m = int.parse(parts[1]);
+      return h * 60 + m;
+    } catch (e) {
+      return -1;
+    }
   }
 
 }

@@ -25,19 +25,70 @@ import 'package:homesync/profile_screen.dart';
 import 'package:homesync/device_usage.dart';
 import 'package:homesync/notification_manager.dart';
 import 'package:homesync/notification_test_screen.dart';
-import 'package:homesync/history.dart';
-
+import 'package:homesync/OptimizedDeviceHistoryScreen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:homesync/usage.dart' show UsageService;
+import 'package:homesync/scheduling_service.dart';
+import 'package:homesync/about.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ Corrected spelling: Firebase.initializeApp()
+  // Firebase.initializeApp()
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
   // Initialize notification system
   final notificationManager = NotificationManager();
-  await notificationManager.initialize();
+  // Don't block app startup on potentially slow platform initialization.
+  // Initialize in background and log failures — this keeps the UI responsive.
+  Future(() async {
+    try {
+      await notificationManager.initialize();
+    } catch (e, st) {
+      debugPrint('Warning: notification init failed: $e');
+      debugPrint('$st');
+    }
+  });
+
+  // Initialize scheduling service for foreground runs if user is already signed in
+  // Start scheduling service in background if a user is already signed in.
+  Future(() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await ApplianceSchedulingService.initService(
+          auth: FirebaseAuth.instance,
+          firestore: FirebaseFirestore.instance,
+          usageService: UsageService(),
+        );
+      }
+    } catch (e, st) {
+      // Non-fatal: log for debugging, do not block app start
+      debugPrint('Warning: scheduling service init failed: $e');
+      debugPrint('$st');
+    }
+  });
+
+  // Also respond to auth state changes so that if the user signs in after app start
+  // we initialize the scheduling service and listeners. This handles cases where
+  // the app launched before authentication completed.
+  FirebaseAuth.instance.authStateChanges().listen((user) async {
+    if (user != null) {
+      try {
+        await ApplianceSchedulingService.initService(
+          auth: FirebaseAuth.instance,
+          firestore: FirebaseFirestore.instance,
+          usageService: UsageService(),
+        );
+        debugPrint('Main: Scheduling service initialized after auth state change for ${user.uid}');
+      } catch (e, st) {
+        debugPrint('Main: scheduling init after auth change failed: $e');
+        debugPrint('$st');
+      }
+    }
+  });
 
   runApp(const MyApp());
 }
@@ -58,7 +109,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => WelcomeScreen(),
         '/signup': (context) => SignUpScreen(),
         '/login': (context) => LoginScreen(),
-        '/history': (context) => DeviceHistoryScreen(),
+        '/history': (context) => OptimizedDeviceHistoryScreen(),
         '/forgot-password': (context) => ForgotPasswordScreen(),
         '/homepage': (context) => HomepageScreen(),
         '/devices': (context) => DevicesScreen(),
@@ -70,27 +121,29 @@ class MyApp extends StatelessWidget {
         '/devicenotif': (context) => DeviceNotif(),
         '/notificationtest': (context) => NotificationTestScreen(),
         '/roominfo': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as String;
-          return Roomsinfo(roomItem: args);
+          final args = ModalRoute.of(context)?.settings.arguments as String?;
+          return Roomsinfo(roomItem: args ?? '');
         },
         '/schedule': (context) => Schedule(),
         '/deviceinfo': (context) {
-          final args =
-              ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+          final applianceId = args?['applianceId'] as String? ?? '';
+          final deviceName = args?['deviceName'] as String? ?? '';
           return DeviceInfoScreen(
-            applianceId: args['applianceId'] as String,
-            initialDeviceName: args['deviceName'] as String,
+            applianceId: applianceId,
+            initialDeviceName: deviceName,
           );
         },
         '/editdevice': (context) {
-          final args =
-              ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+          final applianceId = args?['applianceId'] as String? ?? '';
           return EditDeviceScreen(
-            applianceId: args['applianceId'] as String,
+            applianceId: applianceId,
           );
         },
         '/profile': (context) => ProfileScreen(),
-        '/deviceusage': (context) {
+        '/about': (context) => AboutScreen(),
+         /* '/deviceusage': (context) {
           final args = ModalRoute.of(context)?.settings.arguments
               as Map<String, dynamic>?;
 
@@ -103,14 +156,18 @@ class MyApp extends StatelessWidget {
               applianceId == "DEFAULT_APPLIANCE_ID") {
             debugPrint(
                 "⚠️ Warning: Navigating to /deviceusage without proper userId or applianceId arguments.");
-          }
+          } */
 
-          return DeviceUsage(
+          /* return DeviceUsage(
             userId: userId,
-            applianceId: applianceId,
+            applianceId: applianceId, */
+      
+      }
           );
-        },
-      },
-    );
   }
 }
+        /* },
+      }, */
+    /* );
+  }
+} */

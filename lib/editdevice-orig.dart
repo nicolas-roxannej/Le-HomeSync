@@ -12,7 +12,7 @@ class EditDeviceScreen extends StatefulWidget {
 
 class _EditDeviceScreenState extends State<EditDeviceScreen> {
   // Add a list of available relays
-  List<String> relays = List.generate(9, (index) => 'relay${index + 1}');
+  List<String> relays = List.generate(8, (index) => 'relay${index + 1}');
 
   bool isEditing = false;
   bool _isLoading = true;
@@ -139,7 +139,15 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
         print("Device with ID ${widget.applianceId} not found.");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Device not found."))
+            SnackBar(
+              content: Text(
+                "Device not found.",
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+              behavior: SnackBarBehavior.floating,
+            )
           );
           Navigator.of(context).pop();
         }
@@ -148,7 +156,15 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
       print("Error fetching device data: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error loading device data: ${e.toString()}"))
+          SnackBar(
+            content: Text(
+              "Error loading device data: ${e.toString()}",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
         Navigator.of(context).pop();
       }
@@ -735,7 +751,15 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
       print("Device successfully added to Firestore.");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("${deviceData['applianceName']} added successfully!"))
+          SnackBar(
+            content: Text(
+              "${deviceData['applianceName']} added successfully!",
+              style: const TextStyle(color: Colors.black),
+            ),
+            backgroundColor: const Color(0xFFE9E7E6),
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
         Navigator.of(context).pop();
       }
@@ -743,7 +767,15 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
       print("Error adding device: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error adding device: ${e.toString()}"))
+          SnackBar(
+            content: Text(
+              "Error adding device: ${e.toString()}",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
       }
     }
@@ -776,7 +808,15 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
       print("Device $applianceId successfully updated.");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("${updatedData['applianceName']} updated successfully!"))
+          SnackBar(
+            content: Text(
+              "${updatedData['applianceName']} updated successfully!",
+              style: const TextStyle(color: Colors.black),
+            ),
+            backgroundColor: const Color(0xFFE9E7E6),
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
         Navigator.of(context).pop();
       }
@@ -784,7 +824,15 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
       print("Error updating device: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error updating device: ${e.toString()}"))
+          SnackBar(
+            content: Text(
+              "Error updating device: ${e.toString()}",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
       }
     }
@@ -827,7 +875,15 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
         print("Device $applianceId successfully deleted.");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("$applianceNameToDelete deleted successfully!"))
+            SnackBar(
+              content: Text(
+                "$applianceNameToDelete deleted successfully!",
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+              behavior: SnackBarBehavior.floating,
+            )
           );
           Navigator.of(context).pop();
         }
@@ -835,7 +891,15 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
         print("Error deleting device: $e");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Error deleting device: ${e.toString()}"))
+            SnackBar(
+              content: Text(
+                "Error deleting device: ${e.toString()}",
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+              behavior: SnackBarBehavior.floating,
+            )
           );
         }
       }

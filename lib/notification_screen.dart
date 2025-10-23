@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:homesync/notification_settings.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -17,165 +22,127 @@ class _NotificationScreenState extends State<NotificationScreen> {
   List<NotificationItem> _archivedNotifications = [];
   List<NotificationItem> _selectedNotifications = [];
 
+  StreamSubscription<QuerySnapshot>? _notificationsSub;
+
   @override
   void initState() {
     super.initState();
-    _loadNotifications();
+    _initNotificationsListener();
   }
 
-  void _loadNotifications() async {
-    final fetchedNotifications = await _fetchNotificationsFromBackend();
-    setState(() {
-      _notifications = fetchedNotifications;
+  @override
+  void dispose() {
+    _notificationsSub?.cancel();
+    super.dispose();
+  }
+
+  void _initNotificationsListener() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Fallback to local storage for unauthenticated users
+      final local = await _loadNotificationsFromPrefs();
+      setState(() => _notifications = local);
+      // Check last tapped doc id (from local taps)
+      final prefs = await SharedPreferences.getInstance();
+      final lastTapped = prefs.getString('last_tapped_notification_docid') ?? '';
+      if (lastTapped.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Tapped notification: $lastTapped')));
+        await prefs.remove('last_tapped_notification_docid');
+      }
+      return;
+    }
+
+  // Prefer ordering by createdAt (new schema). Fall back to timestamp for older records.
+  final coll = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('notifications');
+  // Use a try/catch ordering by createdAt; if createdAt missing on some docs, the query still works.
+  _notificationsSub = coll.orderBy('createdAt', descending: true).snapshots().listen((snap) {
+      final active = <NotificationItem>[];
+      final archived = <NotificationItem>[];
+      for (var doc in snap.docs) {
+        final data = doc.data();
+        final title = (data['title'] as String?) ?? (data['body'] as String?) ?? '';
+        final body = (data['body'] as String?) ?? '';
+        final typeStr = (data['type'] as String?) ?? 'system';
+        final isArchived = (data['archived'] as bool?) ?? false;
+        // Read createdAt if available, else fallback to older timestamp field
+        String timeString = '';
+        try {
+          final ts = (data['createdAt'] ?? data['timestamp']); // prefer createdAt
+          if (ts is Timestamp) {
+            timeString = _readableTime(ts.toDate());
+          } else {
+            timeString = '';
+          }
+        } catch (_) {
+          timeString = '';
+        }
+
+        final item = NotificationItem(
+          id: doc.id,
+          title: title,
+          description: body,
+          time: timeString,
+          isSelected: false,
+          type: typeStr,
+        );
+        if (isArchived) archived.add(item); else active.add(item);
+      }
+      setState(() {
+        _notifications = active;
+        _archivedNotifications = archived;
+        // Show last tapped doc id if present (quick highlight feedback)
+        SharedPreferences.getInstance().then((prefs) async {
+          final lastTapped = prefs.getString('last_tapped_notification_docid') ?? '';
+          if (lastTapped.isNotEmpty) {
+            final combined = [..._notifications, ..._archivedNotifications];
+            final found = combined.indexWhere((n) => n.id == lastTapped);
+            if (found != -1) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Tapped notification: ${combined[found].title}')));
+            }
+            await prefs.remove('last_tapped_notification_docid');
+          }
+        });
+      });
+    }, onError: (e) async {
+      // If listener fails, fallback to local prefs
+      final local = await _loadNotificationsFromPrefs();
+      setState(() => _notifications = local);
     });
   }
 
-  Future<List<NotificationItem>> _fetchNotificationsFromBackend() async {
-    await Future.delayed(Duration(seconds: 2)); // simulate network delay
-
-    return [
-      NotificationItem(
-        id: '1',
-        title: 'Daily Energy Report Available',
-        description: 'You used 12.4 kWh today. Tap to view detailed insights.',
-        time: 'Today, 8:00 AM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '2',
-        title: 'Appliance Left On',
-        description: 'The air conditioner ran longer than usual.',
-        time: 'Today, 7:45 AM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '3',
-        title: 'Appliance Turned Off Automatically',
-        description: 'To save energy, the electric fan was turned off automatically.',
-        time: 'Today, 6:30 AM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '4',
-        title: 'Appliance Scheduled to Run Soon',
-        description: 'Automation for the lamp starts in 15 minutes.',
-        time: 'Today, 7:45 PM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '7',
-        title: 'New Appliance Added',
-        description: 'Smart Light added successfully in Bedroom.',
-        time: 'Today, 3:30 AM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '8',
-        title: 'Unusual Pattern Detected',
-        description: 'Unusual energy usage pattern detected in bedroom light.',
-        time: 'Yesterday, 9:30 PM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '9',
-        title: 'New Automation Feature',
-        description: 'You can now schedule appliance using automatic alarm set.',
-        time: 'Yesterday, 6:00 PM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '10',
-        title: 'Connectivity Issue',
-        description: 'IoT Hub is not responding. Check your Wi-Fi.',
-        time: 'Today, 4:00 AM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '11',
-        title: 'Data Sync Completed',
-        description: 'Your data has been successfully synced with the cloud.',
-        time: 'Today, 5:00 AM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '12',
-        title: 'High Energy Usage Detected',
-        description: 'Your home\'s energy usage is 20% higher than usual today.',
-        time: 'Today, 7:00 AM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '13',
-        title: 'Appliance Disconnected',
-        description: 'Socket (bedroom) disconnected.',
-        time: 'Yesterday, 10:00 PM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '14',
-        title: 'Appliance Reconnected',
-        description: 'Socket (bedroom) reconnected.',
-        time: 'Today, 12:00 AM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '15',
-        title: 'Overload Warning',
-        description: 'High current detected on Socket (Fridge).',
-        time: 'Today, 1:00 AM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '16',
-        title: 'System Maintenance Coming Up',
-        description: 'Maintenance scheduled for Saturday.',
-        time: '3 days ago',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '17',
-        title: 'App Update Available',
-        description: 'Version 2.3.0 is now available.',
-        time: 'Yesterday, 4:00 PM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '18',
-        title: 'Weather Notification',
-        description: 'Current weather: 27°C, Sunny.',
-        time: 'Today, 6:30 AM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '19',
-        title: 'Notification Setting Triggered',
-        description: 'The fan was turned off as per your notification setting.',
-        time: 'Today, 9:30 AM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '20',
-        title: 'Unusual Energy Spike',
-        description: 'The air conditioner ran longer than usual. Check usage now.',
-        time: 'Today, 10:00 AM',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '21',
-        title: 'Monthly Comparison Ready',
-        description: 'Your home used 5% less energy compared to last month.',
-        time: '2 days ago',
-        isSelected: false,
-      ),
-      NotificationItem(
-        id: '22',
-        title: 'Energy Saving Tip',
-        description: 'Set lights to auto-off at night to save up to 5% energy.',
-        time: 'Yesterday, 3:00 PM',
-        isSelected: false,
-      ),
-    ];
+  Future<List<NotificationItem>> _loadNotificationsFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList('local_notifications') ?? [];
+    final out = <NotificationItem>[];
+    for (var s in list) {
+      try {
+        final m = jsonDecode(s) as Map<String, dynamic>;
+        final localId = (m['id'] as String?) ?? DateTime.now().millisecondsSinceEpoch.toString();
+        final title = (m['title'] as String?) ?? '';
+        final body = (m['body'] as String?) ?? '';
+        final time = (m['time'] as String?) ?? '';
+        final docId = (m['docId'] as String?) ?? '';
+        final typeRaw = (m['type'] as String?) ?? 'system';
+        final type = typeRaw.split('.').last; // e.g. NotificationType.device
+        out.add(NotificationItem(id: docId.isNotEmpty ? docId : localId, title: title, description: body, time: time, isSelected: false, type: type));
+      } catch (_) {}
+    }
+    return out;
   }
+
+  String _readableTime(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inDays == 0) {
+      return 'Today, ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } else if (diff.inDays == 1) {
+      return 'Yesterday, ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } else {
+      return '${diff.inDays} days ago';
+    }
+  }
+
+  // Deletion helpers removed: deletion/remote delete is disabled per specification.
 
   void _enterSelectionMode(NotificationItem notification) {
     setState(() {
@@ -243,7 +210,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
         backgroundColor: Colors.green,
       ),
     );
+    // Note: deletion to Firestore is intentionally disabled per specification.
+    // Persist archived flag to Firestore for selected notifications (if user is signed in)
+    _persistArchiveSelected(_selectedNotifications, archived: true);
   }
+
+  // Attempt to delete corresponding Firestore notifications if they exist.
+  // Deletion persistence disabled intentionally.
 
   void _unarchiveSelected() {
     if (_selectedNotifications.isEmpty) return;
@@ -271,6 +244,24 @@ class _NotificationScreenState extends State<NotificationScreen> {
         backgroundColor: Colors.blue,
       ),
     );
+    // Persist unarchive state
+    _persistArchiveSelected(_selectedNotifications, archived: false);
+  }
+
+  Future<void> _persistArchiveSelected(List<NotificationItem> items, {required bool archived}) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return; // only persist for authenticated users
+      for (var item in items) {
+        try {
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('notifications').doc(item.id).set({'archived': archived, 'timestamp': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+        } catch (e) {
+          print('NotificationScreen: Failed to update archived state for ${item.id}: $e');
+        }
+      }
+    } catch (e) {
+      print('NotificationScreen: Error persisting archive state: $e');
+    }
   }
 
   void _goToArchive() {
@@ -286,6 +277,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       _exitSelectionMode();
     });
   }
+
+  // Per spec: deletion UI removed and deletion operations disabled.
 
   List<NotificationItem> _getCurrentNotificationsList() {
     return _showingArchived ? _archivedNotifications : _notifications;
@@ -423,6 +416,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               _enterSelectionMode(notification);
             }
           },
+        
         );
       },
     );
@@ -486,6 +480,7 @@ class NotificationItem {
   final String title;
   final String description;
   final String time;
+  final String type;
   bool isSelected;
 
   NotificationItem({
@@ -494,6 +489,7 @@ class NotificationItem {
     required this.description,
     required this.time,
     required this.isSelected,
+    this.type = 'system',
   });
 }
 
@@ -502,6 +498,7 @@ class NotificationCard extends StatelessWidget {
   final bool isDeleteMode;
   final VoidCallback onToggleSelection;
   final VoidCallback onLongPress;
+  final VoidCallback? onDelete;
 
   const NotificationCard({
     super.key,
@@ -509,6 +506,7 @@ class NotificationCard extends StatelessWidget {
     required this.isDeleteMode,
     required this.onToggleSelection,
     required this.onLongPress,
+    this.onDelete,
   });
 
   @override
@@ -562,6 +560,7 @@ class NotificationCard extends StatelessWidget {
                 ),
               ],
             ),
+            trailing: null,
           ),
         ),
       ),

@@ -1,4 +1,5 @@
 import 'package:homesync/notification_service.dart';
+// firebase imports removed - lower-level notification service handles persistence where needed
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationManager {
@@ -18,13 +19,22 @@ class NotificationManager {
     required String deviceName,
     required String room,
     required bool isOn,
+    String? applianceId,
   }) async {
+    // Allow callers to optionally supply applianceId so persisted notification
+    // documents include a direct reference to the appliance; this helps mapping
+    // notifications to devices without changing UI.
     if (await _isDeviceNotificationEnabled(deviceName)) {
       final status = isOn ? 'turned on' : 'turned off';
+      // Build extra data with triggerType and optional applianceId for persistence
+      final extraData = <String, dynamic>{'triggerType': 'manual'};
+      if (applianceId != null) extraData['applianceId'] = applianceId;
+      // Invoke low-level showDeviceNotification which persists and shows OS notification
       await _notificationService.showDeviceNotification(
         deviceName: deviceName,
         status: status,
         room: room,
+        extraData: extraData,
       );
     }
   }
@@ -151,13 +161,23 @@ class NotificationManager {
     required String automationName,
     required String action,
     required String deviceName,
+    String? applianceId,
   }) async {
     if (await _isDeviceNotificationEnabled(deviceName)) {
+      // Prepare extra structured data so persistence includes applianceId and room context
+      final extraData = <String, dynamic>{};
+      if (applianceId != null) extraData['applianceId'] = applianceId;
+      // Mark this notification as triggered by scheduler/automation
+      extraData['triggerType'] = 'scheduled';
+      // Invoke the lower-level API which will persist the notification and include the docId in the OS payload
       await _notificationService.showDeviceNotification(
         deviceName: deviceName,
         status: action,
-        room: 'via automation "$automationName"',
+        room: 'via automation "${automationName}"',
+        extraData: extraData,
       );
+      // The lower-level notification service already persists notifications and
+      // includes the Firestore docId in the OS payload.
     }
   }
 

@@ -15,16 +15,34 @@ class DeviceNotifState extends State<DeviceNotif> {
   Map<String, bool> _notifications = {};
   bool _isLoading = true;
   StreamSubscription? _appliancesSubscription;
+  StreamSubscription<User?>? _authStateSub;
   String _errorMessage = '';
 
   @override
   void initState() {
     super.initState();
-    _loadUserAppliances();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _loadUserAppliances();
+    }
+
+    _authStateSub = FirebaseAuth.instance.authStateChanges().listen((u) {
+      if (u != null) {
+        _loadUserAppliances();
+      } else {
+        _appliancesSubscription?.cancel();
+        setState(() {
+          _notifications = {};
+          _isLoading = false;
+          _errorMessage = 'User not authenticated';
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _authStateSub?.cancel();
     _appliancesSubscription?.cancel();
     super.dispose();
   }

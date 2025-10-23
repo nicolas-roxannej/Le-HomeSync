@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// Function to check if a year is a leap year
+// to check if the month is leap year
 bool isLeapYear(int year) {
   return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
 }
@@ -806,19 +806,21 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     String? selectedApplianceType;
     bool showCustomBrand = false;
     bool showCustomAppliance = false;
+    bool isApplianceDropdownOpen = false;
+    
     final List<String> smartBrands = [
       'Samsung', 'LG', 'Xiaomi', 'Philips', 'Sony', 'Panasonic', 
       'TCL', 'Haier', 'Whirlpool', 'Electrolux', 'Bosch', 'GE',
       'KitchenAid', 'Frigidaire', 'Maytag', 'Fisher & Paykel',
       'Others',
     ];
+    
     final List<String> applianceTypes = [
       'TV', 'Air Conditioner', 'Refrigerator', 'Washing Machine',
       'Microwave', 'Dishwasher', 'Coffee Maker', 'Rice Cooker',
       'Electric Fan', 'Heater', 'Speaker', 'Plugs', 'Air Fryers',
       'Light', 'Router', 'Home Hubs', 'Air Purifiers', 'Alarm Clocks',
       'Doorbell', 'CCTV', 'Smoke Alarm', 'Garage Door', 'Lock', 'Vacuums', 'Lamp',
-      'Others',
     ];
 
     showDialog(
@@ -827,6 +829,10 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
         String? brandError;
         String? modelNameError;
         String? applianceTypeError;
+        bool showCustomBrand = false;
+        bool showCustomAppliance = false;
+        bool isApplianceDropdownOpen = false;
+        bool isBrandDropdownOpen = false;
         
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
@@ -845,100 +851,162 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        DropdownButtonFormField<String>(
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.white,
-                            labelText: 'Appliance Type ',
-                            labelStyle: GoogleFonts.jaldi(
-                              textStyle: TextStyle(fontSize: 18),
-                              color: Colors.black,
-                            ),
-                            border: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: applianceTypeError != null ? const Color.fromARGB(255, 131, 24, 16) : Colors.grey,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: applianceTypeError != null ? const Color.fromARGB(255, 139, 28, 20) : Colors.grey,
-                              ),
-                            ),
-                          ),
-                          dropdownColor: Colors.grey[200],
-                          style: GoogleFonts.jaldi(
-                            textStyle: TextStyle(fontSize: 16, color: Colors.black87),
-                          ),
-                          value: selectedApplianceType,
-                          items: applianceTypes.map((type) {
-                            return DropdownMenuItem(
-                              value: type,
-                              child: Text(type),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
+                        GestureDetector(
+                          onTap: () {
                             setDialogState(() {
-                              selectedApplianceType = value;
-                              applianceTypeError = null;
-                              if (value == 'Others') {
-                                showCustomAppliance = true;
-                              } else {
-                                showCustomAppliance = false;
-                                customApplianceInput.clear();
-                              }
+                              isApplianceDropdownOpen = !isApplianceDropdownOpen;
+                              isBrandDropdownOpen = false;
                             });
                           },
-                        ),
-                        if (showCustomAppliance)
-                          Padding(
-                            padding: EdgeInsets.only(left: 12, top: 10),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(
+                                color: applianceTypeError != null 
+                                    ? const Color.fromARGB(255, 131, 24, 16) 
+                                    : Colors.grey,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                             child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Other: ',
+                                  selectedApplianceType ?? 'Appliance Type',
                                   style: GoogleFonts.jaldi(
-                                    fontSize: 16,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: TextField(
-                                    controller: customApplianceInput,
-                                    style: GoogleFonts.inter(
-                                      textStyle: TextStyle(fontSize: 16),
-                                      color: Colors.black,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: "Type appliance type",
-                                      hintStyle: GoogleFonts.inter(
-                                        color: Colors.grey,
-                                        fontSize: 14,
-                                      ),
-                                      border: UnderlineInputBorder(),
-                                      enabledBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(color: Colors.grey),
-                                      ),
-                                      focusedBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(color: Colors.black),
-                                      ),
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                    textStyle: TextStyle(
+                                      fontSize: 16,
+                                      color: selectedApplianceType != null 
+                                          ? Colors.black87 
+                                          : Colors.grey,
                                     ),
                                   ),
                                 ),
-                                IconButton(
-                                  icon: Icon(Icons.check, color: Colors.green, size: 24),
-                                  onPressed: () {
-                                    if (customApplianceInput.text.trim().isNotEmpty) {
-                                      setDialogState(() {
-                                        selectedApplianceType = customApplianceInput.text.trim();
-                                        showCustomAppliance = false;
-                                        applianceTypeError = null;
-                                      });
-                                    }
-                                  },
+                                Icon(
+                                  isApplianceDropdownOpen 
+                                      ? Icons.arrow_drop_up 
+                                      : Icons.arrow_drop_down,
+                                  color: Colors.black,
                                 ),
                               ],
+                            ),
+                          ),
+                        ),
+                        if (isApplianceDropdownOpen)
+                          Container(
+                            margin: EdgeInsets.only(top: 4),
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            constraints: BoxConstraints(maxHeight: 250),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  ...applianceTypes.where((type) => type != 'Others').map((type) {
+                                    return InkWell(
+                                      onTap: () {
+                                        setDialogState(() {
+                                          selectedApplianceType = type;
+                                          isApplianceDropdownOpen = false;
+                                          showCustomAppliance = false;
+                                          customApplianceInput.clear();
+                                          applianceTypeError = null;
+                                        });
+                                      },
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        child: Text(
+                                          type,
+                                          style: GoogleFonts.jaldi(
+                                            textStyle: TextStyle(fontSize: 16, color: Colors.black87),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                  InkWell(
+                                    onTap: () {
+                                      setDialogState(() {
+                                        showCustomAppliance = !showCustomAppliance;
+                                      });
+                                    },
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      child: Text(
+                                        'Others',
+                                        style: GoogleFonts.jaldi(
+                                          textStyle: TextStyle(fontSize: 16, color: Colors.black87),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (showCustomAppliance)
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            'Other: ',
+                                            style: GoogleFonts.jaldi(
+                                              fontSize: 14,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: TextField(
+                                              controller: customApplianceInput,
+                                              autofocus: true,
+                                              style: GoogleFonts.inter(
+                                                textStyle: TextStyle(fontSize: 14),
+                                                color: Colors.black,
+                                              ),
+                                              decoration: InputDecoration(
+                                                hintText: "Type Appliance",
+                                                hintStyle: GoogleFonts.inter(
+                                                  color: Colors.grey,
+                                                  fontSize: 12,
+                                                ),
+                                                border: UnderlineInputBorder(),
+                                                isDense: true,
+                                                contentPadding: EdgeInsets.symmetric(vertical: 4),
+                                              ),
+                                              onSubmitted: (value) {
+                                                if (value.trim().isNotEmpty) {
+                                                  setDialogState(() {
+                                                    selectedApplianceType = value.trim();
+                                                    showCustomAppliance = false;
+                                                    isApplianceDropdownOpen = false;
+                                                    applianceTypeError = null;
+                                                  });
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.check, color: Colors.black, size: 20),
+                                            padding: EdgeInsets.zero,
+                                            constraints: BoxConstraints(minWidth: 30, minHeight: 30),
+                                            onPressed: () {
+                                              if (customApplianceInput.text.trim().isNotEmpty) {
+                                                setDialogState(() {
+                                                  selectedApplianceType = customApplianceInput.text.trim();
+                                                  showCustomAppliance = false;
+                                                  isApplianceDropdownOpen = false;
+                                                  applianceTypeError = null;
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         if (applianceTypeError != null)
@@ -955,100 +1023,162 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        DropdownButtonFormField<String>(
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.white,
-                            labelText: 'Brand Name ',
-                            labelStyle: GoogleFonts.jaldi(
-                              textStyle: TextStyle(fontSize: 18),
-                              color: Colors.black,
-                            ),
-                            border: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: brandError != null ? const Color.fromARGB(255, 161, 34, 25) : Colors.grey,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: brandError != null ? const Color.fromARGB(255, 143, 30, 21) : Colors.grey,
-                              ),
-                            ),
-                          ),
-                          dropdownColor: Colors.grey[200],
-                          style: GoogleFonts.jaldi(
-                            textStyle: TextStyle(fontSize: 16, color: Colors.black87),
-                          ),
-                          value: selectedBrand,
-                          items: smartBrands.map((brand) {
-                            return DropdownMenuItem(
-                              value: brand,
-                              child: Text(brand),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
+                        GestureDetector(
+                          onTap: () {
                             setDialogState(() {
-                              selectedBrand = value;
-                              brandError = null;
-                              if (value == 'Others') {
-                                showCustomBrand = true;
-                              } else {
-                                showCustomBrand = false;
-                                customBrandInput.clear();
-                              }
+                              isBrandDropdownOpen = !isBrandDropdownOpen;
+                              isApplianceDropdownOpen = false;
                             });
                           },
-                        ),
-                        if (showCustomBrand)
-                          Padding(
-                            padding: EdgeInsets.only(left: 12, top: 10),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(
+                                color: brandError != null 
+                                    ? const Color.fromARGB(255, 161, 34, 25) 
+                                    : Colors.grey,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                             child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Other: ',
+                                  selectedBrand ?? 'Brand Name',
                                   style: GoogleFonts.jaldi(
-                                    fontSize: 16,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: TextField(
-                                    controller: customBrandInput,
-                                    style: GoogleFonts.inter(
-                                      textStyle: TextStyle(fontSize: 16),
-                                      color: Colors.black,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: "Type brand name",
-                                      hintStyle: GoogleFonts.inter(
-                                        color: Colors.grey,
-                                        fontSize: 14,
-                                      ),
-                                      border: UnderlineInputBorder(),
-                                      enabledBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(color: Colors.grey),
-                                      ),
-                                      focusedBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(color: Colors.black),
-                                      ),
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                    textStyle: TextStyle(
+                                      fontSize: 16,
+                                      color: selectedBrand != null 
+                                          ? Colors.black87 
+                                          : Colors.grey,
                                     ),
                                   ),
                                 ),
-                                IconButton(
-                                  icon: Icon(Icons.check, color: Colors.green, size: 24),
-                                  onPressed: () {
-                                    if (customBrandInput.text.trim().isNotEmpty) {
-                                      setDialogState(() {
-                                        selectedBrand = customBrandInput.text.trim();
-                                        showCustomBrand = false;
-                                        brandError = null;
-                                      });
-                                    }
-                                  },
+                                Icon(
+                                  isBrandDropdownOpen 
+                                      ? Icons.arrow_drop_up 
+                                      : Icons.arrow_drop_down,
+                                  color: Colors.black,
                                 ),
                               ],
+                            ),
+                          ),
+                        ),
+                        if (isBrandDropdownOpen)
+                          Container(
+                            margin: EdgeInsets.only(top: 4),
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            constraints: BoxConstraints(maxHeight: 250),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  ...smartBrands.where((brand) => brand != 'Others').map((brand) {
+                                    return InkWell(
+                                      onTap: () {
+                                        setDialogState(() {
+                                          selectedBrand = brand;
+                                          isBrandDropdownOpen = false;
+                                          showCustomBrand = false;
+                                          customBrandInput.clear();
+                                          brandError = null;
+                                        });
+                                      },
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        child: Text(
+                                          brand,
+                                          style: GoogleFonts.jaldi(
+                                            textStyle: TextStyle(fontSize: 16, color: Colors.black87),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                  InkWell(
+                                    onTap: () {
+                                      setDialogState(() {
+                                        showCustomBrand = !showCustomBrand;
+                                      });
+                                    },
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      child: Text(
+                                        'Others',
+                                        style: GoogleFonts.jaldi(
+                                          textStyle: TextStyle(fontSize: 16, color: Colors.black87),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (showCustomBrand)
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            'Other: ',
+                                            style: GoogleFonts.jaldi(
+                                              fontSize: 14,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: TextField(
+                                              controller: customBrandInput,
+                                              autofocus: true,
+                                              style: GoogleFonts.inter(
+                                                textStyle: TextStyle(fontSize: 14),
+                                                color: Colors.black,
+                                              ),
+                                              decoration: InputDecoration(
+                                                hintText: "Type brand name",
+                                                hintStyle: GoogleFonts.inter(
+                                                  color: Colors.grey,
+                                                  fontSize: 12,
+                                                ),
+                                                border: UnderlineInputBorder(),
+                                                isDense: true,
+                                                contentPadding: EdgeInsets.symmetric(vertical: 4),
+                                              ),
+                                              onSubmitted: (value) {
+                                                if (value.trim().isNotEmpty) {
+                                                  setDialogState(() {
+                                                    selectedBrand = value.trim();
+                                                    showCustomBrand = false;
+                                                    isBrandDropdownOpen = false;
+                                                    brandError = null;
+                                                  });
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.check, color: Colors.black, size: 20),
+                                            padding: EdgeInsets.zero,
+                                            constraints: BoxConstraints(minWidth: 30, minHeight: 30),
+                                            onPressed: () {
+                                              if (customBrandInput.text.trim().isNotEmpty) {
+                                                setDialogState(() {
+                                                  selectedBrand = customBrandInput.text.trim();
+                                                  showCustomBrand = false;
+                                                  isBrandDropdownOpen = false;
+                                                  brandError = null;
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         if (brandError != null)
@@ -1084,9 +1214,9 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                                 color: modelNameError != null ? const Color.fromARGB(255, 148, 32, 24) : Colors.grey,
                               ),
                             ),
-                            labelText: "Model Name ",
+                            labelText: "Model Name",
                             labelStyle: GoogleFonts.jaldi(
-                              textStyle: TextStyle(fontSize: 18),
+                              textStyle: TextStyle(fontSize: 16,),
                               color: Colors.grey,
                             ),
                             hintText: "Enter model name",
@@ -1311,7 +1441,15 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
       print("User not authenticated. Cannot add device.");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("User not authenticated. Cannot add device."))
+          SnackBar(
+            content: Text(
+              "User not authenticated. Cannot add device.",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
       }
       return;
@@ -1424,7 +1562,15 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("${deviceData['applianceName']} added successfully!"))
+          SnackBar(
+            content: Text(
+              "${deviceData['applianceName']} added successfully!",
+              style: const TextStyle(color: Colors.black),
+            ),
+            backgroundColor: const Color(0xFFE9E7E6),
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
         Navigator.of(context).pop();
       }
@@ -1432,7 +1578,15 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
       print("Error adding device via DatabaseService: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error adding device: ${e.toString()}"))
+          SnackBar(
+            content: Text(
+              "Error adding device: ${e.toString()}",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
       }
     }
@@ -1443,8 +1597,16 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     if (widget.deviceData == null || widget.deviceData!['id'] == null) {
       print("Error: Cannot update device without an ID.");
       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: Device ID not found for update."))
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Error: Device ID not found for update.",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
       }
       return;
@@ -1473,7 +1635,15 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
       print("Device $applianceId successfully updated via DatabaseService.");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("${updatedData['applianceName']} updated successfully!"))
+          SnackBar(
+            content: Text(
+              "${updatedData['applianceName']} updated successfully!",
+              style: const TextStyle(color: Colors.black),
+            ),
+            backgroundColor: const Color(0xFFE9E7E6),
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
         Navigator.of(context).pop();
       }
@@ -1481,7 +1651,15 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
       print("Error updating device $applianceId via DatabaseService: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error updating device: ${e.toString()}"))
+          SnackBar(
+            content: Text(
+              "Error updating device: ${e.toString()}",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
       }
     }
@@ -1491,9 +1669,17 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     final DatabaseService dbService = DatabaseService();
     if (widget.deviceData == null || widget.deviceData!['id'] == null) {
       print("Error: Cannot delete device without an ID.");
-       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: Device ID not found for deletion."))
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Error: Device ID not found for deletion.",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
       }
       return;
@@ -1540,14 +1726,22 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
           for (final doc in yearlyUsageSnapshot.docs) {
             await doc.reference.delete();
           }
-           print("Deleted yearly_usage subcollection for appliance $applianceId.");
+          print("Deleted yearly_usage subcollection for appliance $applianceId.");
         }
 
         await dbService.deleteAppliance(applianceId: applianceId);
         print("Device $applianceId successfully deleted via DatabaseService.");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("$applianceNameToDelete deleted successfully!"))
+            SnackBar(
+              content: Text(
+                "$applianceNameToDelete deleted successfully!",
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+              behavior: SnackBarBehavior.floating,
+            )
           );
           Navigator.of(context).pop();
         }
@@ -1555,7 +1749,15 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
         print("Error deleting device $applianceId via DatabaseService: $e");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Error deleting device: ${e.toString()}"))
+            SnackBar(
+              content: Text(
+                "Error deleting device: ${e.toString()}",
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+              behavior: SnackBarBehavior.floating,
+            )
           );
         }
       }
@@ -1624,7 +1826,15 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
       if (userId == null) {
         print("User not authenticated. Cannot add room.");
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("User not authenticated. Cannot add room."))
+          SnackBar(
+            content: Text(
+              "User not authenticated. Cannot add room.",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          )
         );
         return;
       }
@@ -1644,7 +1854,15 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     } catch (e) {
       print("Error adding room to user's subcollection: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Room added locally but failed to save to database: ${e.toString()}"))
+        SnackBar(
+          content: Text(
+            "Room added locally but failed to save to database: ${e.toString()}",
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+          behavior: SnackBarBehavior.floating,
+        )
       );
     }
   }

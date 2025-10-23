@@ -8,9 +8,8 @@ import 'package:homesync/room_data_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// TODO: Replace 'YOUR_API_KEY' with your actual OpenWeatherMap API key
-const String _apiKey = 'd542f2e03ea5728e77e367f19c0fb675'; // Placeholder for Weather API Key
-const String _cityName = 'Manila'; // Default city for weather
+const String _apiKey = 'd542f2e03ea5728e77e367f19c0fb675'; 
+const String _cityName = 'Manila'; 
 
 class Rooms extends StatefulWidget {
   const Rooms({super.key});
@@ -56,7 +55,6 @@ class RoomsState extends State<Rooms> {
       print("Weather API key is a placeholder. Please replace it.");
       if (mounted) {
         setState(() {
-          // Keep _currentWeather as null to show placeholder
         });
       }
       return;
@@ -377,7 +375,7 @@ class RoomsState extends State<Rooms> {
         print('Room not found for deletion: $roomName');
       }
 
-      // Also delete all devices associated with the room from the user's appliances subcollection
+      //  delete all devices associated with the room from the user's appliances subcollection
       final deviceQuerySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
@@ -431,7 +429,7 @@ class RoomsState extends State<Rooms> {
         print('Room not found for editing: $oldName');
       }
 
-      // Also update the roomName field in all associated devices in the user's appliances subcollection
+      // update the roomName field in all associated devices in the user's appliances subcollection
       final deviceQuerySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
@@ -606,122 +604,87 @@ class RoomsState extends State<Rooms> {
     );
   }
 
-  /// Enhanced Flyout Menu with tap-to-exit functionality
+ //flyout
+ 
   void _showFlyout(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    showModalBottomSheet(
-      isScrollControlled: true,
-      isDismissible: false, // Disable sliding down to close
-      enableDrag: false, // Disable drag to dismiss
+    showGeneralDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return GestureDetector(
-          // Tap anywhere outside the flyout to close
-          onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            color: Colors.transparent,
-            child: GestureDetector(
-              // Prevent taps on the flyout content from closing it
-              onTap: () {},
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Transform.translate(
-                  offset: const Offset(-90, 0),
-                  child: Container(
-                    width: screenSize.width * 0.75,
-                    height: screenSize.height,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF3D3D3D),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(0),
-                        bottomLeft: Radius.circular(0),
-                      ),
+      barrierDismissible: true,
+      barrierLabel: "Dismiss",
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(-1, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: Material(
+              color: Colors.white,
+              elevation: 8,
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.7,
+                height: MediaQuery.of(context).size.height,
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 40),
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.grey,
+                      child: Icon(Icons.home, size: 50, color: Colors.black),
                     ),
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 60),
-                        Row(
-                          children: [
-                            const Icon(Icons.home, size: 50, color: Colors.white),
-                            const SizedBox(width: 10),
-                            Expanded( 
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  FutureBuilder<String>(
-                                    future: getCurrentUsername(),
-                                    builder: (context, snapshot) {
-                                      return Text(
-                                        snapshot.data ?? "User",
-                                        style: TextStyle(
-                                          color: Colors.white, 
-                                          fontSize: 20, 
-                                          fontWeight: FontWeight.bold
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                      );
-                                    },
-                                  ),
-                                  Text(
-                                    FirebaseAuth.instance.currentUser?.email ?? "email@example.com",
-                                    style: GoogleFonts.inter(color: Colors.white70, fontSize: 14),
-                                    overflow: TextOverflow.ellipsis, 
-                                    maxLines: 1, 
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 40),
-                        ListTile(
-                          leading: const Icon(Icons.person, color: Colors.white, size: 35),
-                          title: Text('Profile', style: GoogleFonts.inter(color: Colors.white)),
-                          onTap: () {
-                            Navigator.pop(context); // Close flyout first
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => ProfileScreen()),
-                            );
-                          },
-                        ),
-                            
-                        const SizedBox(height: 15),
-                        ListTile(
-                          leading: const Icon(Icons.notifications, color: Colors.white, size: 35),
-                          title: Text('Notification', style: GoogleFonts.inter(color: Colors.white)),
-                          onTap: () {
-                            Navigator.pop(context); // Close flyout first
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => NotificationScreen()),
-                            );
-                          },
-                        ),
-
-                        const SizedBox(height: 15),
-                        ListTile(
-                          leading: const Padding(
-                            padding: EdgeInsets.only(left: 5),
-                            child: Icon(Icons.logout, color: Colors.white, size: 35),
+                    const SizedBox(height: 16),
+                    FutureBuilder<String>(
+                      future: getCurrentUsername(),
+                      builder: (context, snapshot) {
+                        return Text(
+                          snapshot.data ?? "Loading...",
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                           ),
-                          title: Text('Logout', style: GoogleFonts.inter(color: Colors.white)),
-                          onTap: () async {
-                            Navigator.pop(context); // Close flyout first
-                            await FirebaseAuth.instance.signOut();
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(builder: (context) => WelcomeScreen()),
-                              (Route<dynamic> route) => false,
-                            );
-                          },
-                        ),
-                      ],
+                        );
+                      },
                     ),
-                  ),
+                    const Divider(height: 32, thickness: 1),
+                    ListTile(
+                      leading: const Icon(Icons.person),
+                      title: const Text("Profile"),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/profile');
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.notifications),
+                      title: const Text("Notifications"),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/notification');
+                      },
+                    ),
+                    const Spacer(),
+                    ListTile(
+                      leading: const Icon(Icons.logout, color: Colors.red),
+                      title: const Text(
+                        "Log Out",
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        await FirebaseAuth.instance.signOut();
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (context) => WelcomeScreen(),
+                          ),
+                          (Route<dynamic> route) => false,
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -730,6 +693,7 @@ class RoomsState extends State<Rooms> {
       },
     );
   }
+
 
   /// Navigation Button
   Widget _buildNavButton(String title, bool isSelected, int index) {
@@ -773,7 +737,7 @@ class RoomsState extends State<Rooms> {
     );
   }
   
-  // Helper method to build the rooms list
+  // Helper method roomlist
   Widget _buildRoomsList(List<RoomItem> rooms) {
     return ListView.separated(
       itemCount: rooms.length,

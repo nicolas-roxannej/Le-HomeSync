@@ -3,13 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:homesync/adddevices.dart';
 // Import EditDeviceScreen
 import 'package:homesync/relay_state.dart'; // Re-adding for relay state management
-import 'package:homesync/databaseservice.dart';
+// databaseservice import removed (not used in this file)
 import 'package:homesync/room_data_manager.dart'; // Re-adding for room data management
 import 'package:homesync/devices_screen.dart'; // Import DeviceCard from devices_screen.dart
 import 'package:homesync/usage.dart'; // Import UsageTracker
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart'; // For QueryDocumentSnapshot
 import 'package:firebase_auth/firebase_auth.dart'; // For user authentication
+import 'package:homesync/notification_manager.dart';
 
 class Roomsinfo extends StatefulWidget {
   final String roomItem; // Renamed for clarity (original: RoomItem)
@@ -21,36 +22,54 @@ class Roomsinfo extends StatefulWidget {
 }
 
 class RoomsinfoState extends State<Roomsinfo> {
-  final RoomDataManager _roomDataManager = RoomDataManager(); // room data manager
   StreamSubscription? _relayStateSubscription; // Add stream subscription
-  final DatabaseService _dbService = DatabaseService();
+  StreamSubscription<User?>? _authStateSub;
   StreamSubscription? _appliancesSubscription;
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _roomDevices = [];
-  String _roomType = 'Unknown Type'; // State variable for room type
   UsageService? _usageService;
 
   @override
   void initState() {
     super.initState();
     _usageService = UsageService(); // Initialize UsageService
-    _listenForRelayStateChanges(); // Start listening for relay changes
-    _listenToRoomAppliances();
+    // Only start listeners when auth is available. If the user is signed in,
+    // start immediately; otherwise wait for auth state changes.
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      _listenForRelayStateChanges(); // Start listening for relay changes
+      _listenToRoomAppliances();
+    }
     _fetchRoomType(); // Fetch room type
+
+    _authStateSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        _listenForRelayStateChanges();
+        _listenToRoomAppliances();
+      } else {
+        _relayStateSubscription?.cancel();
+        _appliancesSubscription?.cancel();
+        setState(() {
+          _roomDevices = [];
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _authStateSub?.cancel();
     _relayStateSubscription?.cancel(); // Cancel the relay subscription
     _appliancesSubscription?.cancel();
     super.dispose();
   }
 
   void _fetchRoomType() async {
-    final roomDetails = await _roomDataManager.fetchRoomDetails(widget.roomItem);
+    final localRoomMgr = RoomDataManager();
+    final roomDetails = await localRoomMgr.fetchRoomDetails(widget.roomItem);
     if (mounted && roomDetails != null) {
-      setState(() {
-        _roomType = roomDetails['roomType'] as String? ?? 'Unknown Type';
-      });
+      // roomType not used in UI anymore, keep this for future use or debugging
+      final String rt = roomDetails['roomType'] as String? ?? 'Unknown Type';
+      print('Roomsinfo: roomType for ${widget.roomItem} = $rt');
     }
   }
 
@@ -104,8 +123,16 @@ class RoomsinfoState extends State<Roomsinfo> {
 
   void _listenForRelayStateChanges() {
     // Use Firestore to listen for relay state changes
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print("User not authenticated. Cannot listen to relay states.");
+      return;
+    }
+
     for (String relay in RelayState.relayStates.keys) {
       _relayStateSubscription = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
           .collection('relay_states')
           .doc(relay)
           .snapshots()
@@ -121,9 +148,11 @@ class RoomsinfoState extends State<Roomsinfo> {
             } else {
               // If document doesn't exist, create it with default state (0 = OFF)
               FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
                   .collection('relay_states')
                   .doc(relay)
-                  .set({'state': 0});
+                  .set({'state': 0, 'lastUpdated': FieldValue.serverTimestamp(), 'irControlled': false, 'wattage': 0}, SetOptions(merge: true));
             }
           }, onError: (error) {
             print("Error listening to relay state for $relay: $error");
@@ -153,25 +182,78 @@ class RoomsinfoState extends State<Roomsinfo> {
       final String relayKey = deviceData['relay'] as String? ?? '';
       
       if (relayKey.isNotEmpty) {
-        // Update relay state in Firestore
+        // Update relay state in user's relay_states subcollection with metadata
         int newRelayState = newStatus == 'ON' ? 1 : 0;
         RelayState.relayStates[relayKey] = newRelayState;
-        
-        print("Updating relay state: $relayKey to $newRelayState");
-        await FirebaseFirestore.instance
+
+        print("Updating relay state: $relayKey to $newRelayState (user-scoped)");
+        final userUid = FirebaseAuth.instance.currentUser!.uid;
+        final relayDocRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(userUid)
             .collection('relay_states')
-            .doc(relayKey)
-            .set({'state': newRelayState});
+            .doc(relayKey);
+
+        // Preserve existing irControlled flag if present, otherwise default to false.
+        final existing = await relayDocRef.get();
+        final bool irControlled = existing.exists ? (existing.data()?['irControlled'] as bool? ?? false) : false;
+        final double wattageVal = (deviceData['wattage'] is num) ? (deviceData['wattage'] as num).toDouble() : 0.0;
+
+        await relayDocRef.set({
+          'state': newRelayState,
+          'lastUpdated': FieldValue.serverTimestamp(),
+          'irControlled': irControlled,
+          'wattage': wattageVal,
+          'source': 'manual',
+          'applianceId': applianceId,
+        }, SetOptions(merge: true));
+        // Persist manual override when user manually toggles device ON/OFF.
+        try {
+          final userId = FirebaseAuth.instance.currentUser?.uid;
+          if (userId != null) {
+            if (newStatus == 'OFF') {
+              // When user manually turns OFF, persist manualOffOverrideUntil to end of day so scheduler won't override.
+              final now = DateTime.now();
+              final midnight = DateTime(now.year, now.month, now.day, 23, 59, 59);
+              await FirebaseFirestore.instance.collection('users').doc(userId).collection('appliances').doc(applianceId).set(
+                {'manualOffOverrideUntil': Timestamp.fromDate(midnight)},
+                SetOptions(merge: true),
+              );
+            } else {
+              // When user manually turns ON, persist manualOnOverrideUntil for a safe window (e.g., 24h)
+              final overrideExpiry = Timestamp.fromDate(DateTime.now().add(Duration(hours: 24)));
+              await FirebaseFirestore.instance.collection('users').doc(userId).collection('appliances').doc(applianceId).set(
+                {'manualOnOverrideUntil': overrideExpiry},
+                SetOptions(merge: true),
+              );
+            }
+          }
+        } catch (e) {
+          print('RoomsInfo: Failed to persist manual override: $e');
+        }
       }
       
-      // Update appliance status in Firestore directly in the user's subcollection
+      // Update appliance status in Firestore directly in the user's subcollection (use set merge)
       print("Updating appliance status in Firestore");
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser!.uid) // Use the current user's UID
           .collection('appliances')
           .doc(applianceId)
-          .update({'applianceStatus': newStatus});
+          .set({'applianceStatus': newStatus}, SetOptions(merge: true));
+
+      // Trigger immediate notification for manual toggle
+      try {
+        // Include applianceId so notifications collection records reference the appliance
+        await NotificationManager().notifyDeviceStatusChange(
+          deviceName: deviceData['applianceName'] ?? applianceId,
+          room: deviceData['roomName'] ?? '',
+          isOn: newStatus == 'ON',
+          applianceId: applianceId,
+        );
+      } catch (e) {
+        print('RoomsInfo: Failed to send manual toggle notification: $e');
+      }
 
       // Call UsageService to handle the toggle
       final userUid = FirebaseAuth.instance.currentUser!.uid;
@@ -191,6 +273,13 @@ class RoomsinfoState extends State<Roomsinfo> {
         wattage: wattage,
         kwhrRate: kwhrRate,
       );
+      // Persist a device notification for manual toggles
+      try {
+        final deviceName = deviceData['applianceName'] ?? applianceId;
+        await NotificationManager().notifyDeviceStatusChange(deviceName: deviceName, room: widget.roomItem, isOn: newStatus == 'ON');
+      } catch (e) {
+        print('RoomsInfo: Failed to create manual toggle notification: $e');
+      }
           
       print("Device $applianceId toggled successfully");
     } catch (e) {
@@ -261,7 +350,7 @@ class RoomsinfoState extends State<Roomsinfo> {
                           final deviceDoc = _roomDevices[index];
                           final deviceData = deviceDoc.data();
                           final String applianceId = deviceDoc.id;
-                          final String relayKey = deviceData['relay'] as String? ?? '';
+                          // relayKey not used here, we only need appliance data fields below
 
                           // Extract all required fields from Firestore
                           final String applianceName = deviceData['applianceName'] as String? ?? 'Unknown Device';

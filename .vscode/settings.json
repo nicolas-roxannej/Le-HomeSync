@@ -1,4 +1,5 @@
 {
     "java.configuration.updateBuildConfiguration": "interactive",
-    "cmake.sourceDirectory": "C:/Users/User/Documents/Online Projects/Home Automation/home_auotv2/HOMESYNC/linux"
+    "cmake.sourceDirectory": "C:/Users/User/Documents/Online Projects/Home Automation/home_auotv2/HOMESYNC/linux",
+    "C_Cpp.errorSquiggles": "enabled"
 }

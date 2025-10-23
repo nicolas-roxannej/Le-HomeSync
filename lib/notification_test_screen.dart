@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:homesync/notification_manager.dart';
-import 'package:homesync/notification_service.dart';
+// notification_service not used here; NotificationManager is used instead.
 
 class NotificationTestScreen extends StatefulWidget {
   const NotificationTestScreen({super.key});

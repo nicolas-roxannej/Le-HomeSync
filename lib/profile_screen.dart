@@ -12,18 +12,16 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-     return MaterialApp(
-    title: 'Profile Account',
-    theme: ThemeData(
-      textTheme: GoogleFonts.jaldiTextTheme(
-        Theme.of(context).textTheme,
+    return MaterialApp(
+      title: 'Profile Account',
+      theme: ThemeData(
+        textTheme: GoogleFonts.jaldiTextTheme(Theme.of(context).textTheme),
+        primaryTextTheme: GoogleFonts.jaldiTextTheme(
+          Theme.of(context).primaryTextTheme,
+        ),
       ),
-      primaryTextTheme: GoogleFonts.jaldiTextTheme(
-        Theme.of(context).primaryTextTheme,
-      ),
-    ),
-  ); 
-}
+    );
+  }
 }
 
 class ProfileScreen extends StatefulWidget {
@@ -39,7 +37,7 @@ class ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
+
   bool _obscurePassword = true;
   bool _isLoading = true;
   String _displayUsername = 'My Home'; // For the title
@@ -55,19 +53,23 @@ class ProfileScreenState extends State<ProfileScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        DocumentSnapshot userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-        
+        DocumentSnapshot userDoc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .get();
+
         if (userDoc.exists && mounted) {
-          Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-          
+          Map<String, dynamic> userData =
+              userDoc.data() as Map<String, dynamic>;
+
           setState(() {
-            _emailController.text = userData['email'] ?? user.email ?? 'No email';
+            _emailController.text =
+                userData['email'] ?? user.email ?? 'No email';
             _usernameController.text = userData['username'] ?? 'No username';
             _addressController.text = userData['address'] ?? 'No address';
-            _passwordController.text = '••••••••'; // Don't show actual password for security
+            _passwordController.text =
+                '••••••••'; // Don't show actual password for security
             _displayUsername = userData['username'] ?? 'My Home';
             _isLoading = false;
           });
@@ -91,10 +93,7 @@ class ProfileScreenState extends State<ProfileScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
           'email': _emailController.text,
           'username': _usernameController.text,
           'address': _addressController.text,
@@ -106,7 +105,7 @@ class ProfileScreenState extends State<ProfileScreen> {
           setState(() {
             _displayUsername = _usernameController.text;
           });
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Profile updated successfully!')),
           );
@@ -115,9 +114,9 @@ class ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       print('Error updating user data: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating profile: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error updating profile: $e')));
       }
     }
   }
@@ -136,198 +135,206 @@ class ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFE9E7E6),
       body: SafeArea(
-        child: _isLoading
-            ? Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    
-                    Padding(   // back btn
+        child:
+            _isLoading
+                ? Center(child: CircularProgressIndicator())
+                : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        // back btn
                         padding: EdgeInsets.only(left: 1, top: 8),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.arrow_back, size: 50, color: Colors.black),
-                            onPressed: ()  => Navigator.of(context).pop(), 
-                             
-                            
-                          ),
-                          Text(
-                            'Profile Account',
-                           style: GoogleFonts.jaldi(
-                            textStyle: TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
-                            color: Colors.black,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // Home Icon and Title - UPDATED to show username
-                    Center(
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            child:CircleAvatar(
-                            backgroundColor: Colors.grey,
-                          radius: 50,
-                          child: Icon(Icons.home, color: Colors.black, size: 60),
-                        ),
-                         ),
-                      
-                          const SizedBox(height: 3),
-                          Text(
-                            _displayUsername, // Show actual username instead of hardcoded "My Home"
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 32),
-                    
-                    // Profile information fields
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        children: [
-                          // Email 
-                          _buildInfoRow(
-                            Icons.email,
-                            'Email Address',
-                            _emailController,
-                            false,
-                          ),
-                              Transform.translate(
-                      offset: Offset(0, -10),
-                          child: Divider(height: 0,),
-
-                          ),
-                          
-                          // Username field
-                          _buildInfoRow(
-                            Icons.person,
-                            'Username',
-                            _usernameController,
-                            false,
-                          ),
-                          
-                              Transform.translate(
-                      offset: Offset(0, -10),
-                          child: Divider(height: 0,),
-
-                          ),
-                          
-                          // Address field
-                          _buildInfoRow(
-                            Icons.home,
-                            'House Address',
-                            _addressController,
-                            false,
-                          ),
-                          
-                          Transform.translate(
-                      offset: Offset(0, -10),
-                          child: Divider(height: 0,),
-
-                          ),
-                          // Password field
-                          _buildInfoRow(
-                            Icons.lock,
-                            'Password',
-                            _passwordController,
-                            true,
-                          ),
-
-                             Transform.translate(
-                      offset: Offset(0, -20),
-                          child: Divider(height: 0,),
-
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          
-                          ElevatedButton(
-                            onPressed: _updateUserData, // Actually update the database
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
-                              minimumSize: const Size(double.infinity, 50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(0),
-                                side: BorderSide(color: Colors.black, width: 1),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.arrow_back,
+                                size: 50,
+                                color: Colors.black,
                               ),
-                              elevation: 5,
-                        shadowColor: Colors.black.withOpacity(0.5),
+                              onPressed: () => Navigator.of(context).pop(),
                             ),
-                            child: Text(
-                              'Update Profile',
-                              style: GoogleFonts.judson(
-                          fontSize: 24,
-                          color: Colors.black,
+                            Text(
+                              'Profile Account',
+                              style: GoogleFonts.jaldi(
+                                textStyle: TextStyle(
+                                  fontSize: 23,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                color: Colors.black,
+                              ),
+                            ),
+                          ],
                         ),
-                          ),
-                          
-                          ),
+                      ),
 
-                          const SizedBox(height: 20),
-
-                          // Add password change section
-                          Container(
-                            padding: EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade300),
+                      // Home Icon and Title - UPDATED to show username
+                      Center(
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              child: CircleAvatar(
+                                backgroundColor: Colors.grey,
+                                radius: 50,
+                                child: Icon(
+                                  Icons.home,
+                                  color: Colors.black,
+                                  size: 60,
+                                ),
+                              ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Password Security',
-                                  style: GoogleFonts.jaldi(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
+
+                            const SizedBox(height: 3),
+                            Text(
+                              _displayUsername, // Show actual username instead of hardcoded "My Home"
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Profile information fields
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          children: [
+                            // Email
+                            _buildInfoRow(
+                              Icons.email,
+                              'Email Address',
+                              _emailController,
+                              false,
+                            ),
+                            Transform.translate(
+                              offset: Offset(0, -10),
+                              child: Divider(height: 0),
+                            ),
+
+                            // Username field
+                            _buildInfoRow(
+                              Icons.person,
+                              'Username',
+                              _usernameController,
+                              false,
+                            ),
+
+                            Transform.translate(
+                              offset: Offset(0, -10),
+                              child: Divider(height: 0),
+                            ),
+
+                            // Address field
+                            _buildInfoRow(
+                              Icons.home,
+                              'House Address',
+                              _addressController,
+                              false,
+                            ),
+
+                            Transform.translate(
+                              offset: Offset(0, -10),
+                              child: Divider(height: 0),
+                            ),
+                            // Password field
+                            _buildInfoRow(
+                              Icons.lock,
+                              'Password',
+                              _passwordController,
+                              true,
+                            ),
+
+                            Transform.translate(
+                              offset: Offset(0, -20),
+                              child: Divider(height: 0),
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            ElevatedButton(
+                              onPressed:
+                                  _updateUserData, // Actually update the database
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black,
+                                minimumSize: const Size(double.infinity, 50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(0),
+                                  side: BorderSide(
+                                    color: Colors.black,
+                                    width: 1,
                                   ),
                                 ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'For security reasons, passwords are not displayed. To change your password, please use the password reset option.',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
+                                elevation: 5,
+                                shadowColor: Colors.black.withOpacity(0.5),
+                              ),
+                              child: Text(
+                                'Update Profile',
+                                style: GoogleFonts.judson(
+                                  fontSize: 24,
+                                  color: Colors.black,
                                 ),
-                                SizedBox(height: 12),
-                                TextButton(
-                                  onPressed: _resetPassword,
-                                  child: Text(
-                                    'Reset Password',
-                                    style: TextStyle(
-                                      color: Colors.blue[700],
-                                      fontWeight: FontWeight.w600,
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // Add password change section
+                            Container(
+                              padding: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.7),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Password Security',
+                                    style: GoogleFonts.jaldi(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
                                     ),
                                   ),
-                                ),
-                              ],
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'For security reasons, passwords are not displayed. To change your password, please use the password reset option.',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  SizedBox(height: 12),
+                                  TextButton(
+                                    onPressed: _resetPassword,
+                                    child: Text(
+                                      'Reset Password',
+                                      style: TextStyle(
+                                        color: Colors.blue[700],
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-        ),
-      );
+      ),
+    );
   }
 
   // Method to reset password via email
@@ -338,7 +345,9 @@ class ProfileScreenState extends State<ProfileScreen> {
         await FirebaseAuth.instance.sendPasswordResetEmail(email: user.email!);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Password reset email sent to ${user.email}')),
+            SnackBar(
+              content: Text('Password reset email sent to ${user.email}'),
+            ),
           );
         }
       }
@@ -351,7 +360,12 @@ class ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _buildInfoRow(IconData icon, String title, TextEditingController controller, bool isPassword) {
+  Widget _buildInfoRow(
+    IconData icon,
+    String title,
+    TextEditingController controller,
+    bool isPassword,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
@@ -364,39 +378,39 @@ class ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
                 TextField(
                   controller: controller,
                   obscureText: isPassword && _obscurePassword,
                   enabled: !isPassword, // Disable password field for security
-                  decoration: isPassword
-                      ? InputDecoration(
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                                  size: 25,
+                  decoration:
+                      isPassword
+                          ? InputDecoration(
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                                size: 25,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
                             ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 4,
+                            ),
+                            isDense: true,
+                            border: InputBorder.none,
+                          )
+                          : const InputDecoration(
+                            contentPadding: EdgeInsets.symmetric(vertical: 4),
+                            isDense: true,
+                            border: InputBorder.none,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                          isDense: true,
-                          border: InputBorder.none,
-                        )
-                      : const InputDecoration(
-                          contentPadding: EdgeInsets.symmetric(vertical: 4),
-                          isDense: true,
-                          border: InputBorder.none,
-                        ),
                   style: TextStyle(
                     fontSize: 16,
                     color: isPassword ? Colors.grey : Colors.black,
@@ -405,7 +419,6 @@ class ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-         
         ],
       ),
     );
