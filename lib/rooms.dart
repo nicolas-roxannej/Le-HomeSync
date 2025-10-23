@@ -7,6 +7,7 @@ import 'package:homesync/welcome_screen.dart';
 import 'package:homesync/room_data_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:homesync/about.dart';
 
 const String _apiKey = 'd542f2e03ea5728e77e367f19c0fb675'; 
 const String _cityName = 'Manila'; 
@@ -696,6 +697,19 @@ class RoomsState extends State<Rooms> {
                               context,
                               MaterialPageRoute(builder: (context) => NotificationScreen()),
                             );
+                          },
+                        ),
+                        SizedBox(height: 15),
+                        ListTile(
+                          leading: Icon(Icons.info_outline, color: Colors.white, size: 35),
+                          title: Text('About', style: GoogleFonts.inter(color: Colors.white)),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => AboutScreen()),
+                            );
+                           
                           },
                         ),
 

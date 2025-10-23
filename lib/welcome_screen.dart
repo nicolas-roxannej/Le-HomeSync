@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:homesync/homepage_screen.dart';
 
-
-
-
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
@@ -21,7 +18,7 @@ class WelcomeScreen extends StatelessWidget {
           
           children: [ // logo
           Transform.translate( // title na homesync
-               offset: Offset(0, -40),
+               offset: Offset(-4, -40),
            child: Image.asset('assets/homebg.png', height: 250, width: 149),
           ),
             SizedBox(height: 5),

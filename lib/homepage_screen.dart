@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:homesync/about.dart';
 import 'package:homesync/deviceinfo.dart';
 import 'package:homesync/usage.dart';
 import 'package:homesync/welcome_screen.dart';
@@ -69,7 +70,7 @@ class _HomeScreenState extends State<HomepageScreen> {
     _listenToAppliances();
     _fetchAccurateTotalUsage();
     
-    // Set up periodic refresh every 5 MINUTES (300 seconds)
+    // periodic refresh every 5 MINUTES (300 seconds)
     _refreshTimer = Timer.periodic(Duration(minutes: 5), (timer) {
       if (mounted) {
         _fetchAccurateTotalUsage();
@@ -475,6 +476,7 @@ class _HomeScreenState extends State<HomepageScreen> {
                                         '${_currentWeather?.temperature?.celsius?.toStringAsFixed(0) ?? '--'}°C',
                                         style: GoogleFonts.inter(fontSize: 16),
                                       ),
+                                      
                               ),
                             ],
                           ),
@@ -708,6 +710,19 @@ class _HomeScreenState extends State<HomepageScreen> {
                               context,
                               MaterialPageRoute(builder: (context) => NotificationScreen()),
                             );
+                          },
+                        ),
+                        SizedBox(height: 15),
+                        ListTile(
+                          leading: Icon(Icons.info_outline, color: Colors.white, size: 35),
+                          title: Text('About', style: GoogleFonts.inter(color: Colors.white)),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => AboutScreen()),
+                            );
+                           
                           },
                         ),
                         SizedBox(height: 15),

@@ -11,6 +11,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:homesync/about.dart';
 
 const String _apiKey = 'd542f2e03ea5728e77e367f19c0fb675';
 const String _cityName = 'Manila';
@@ -814,6 +815,19 @@ await FirebaseFirestore.instance
                             );
                           },
                         ),  
+                         SizedBox(height: 15),
+                        ListTile(
+                          leading: Icon(Icons.info_outline, color: Colors.white, size: 35),
+                          title: Text('About', style: GoogleFonts.inter(color: Colors.white)),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => AboutScreen()),
+                            );
+                           
+                          },
+                        ),
 
                         SizedBox(height: 15),
                           ListTile(

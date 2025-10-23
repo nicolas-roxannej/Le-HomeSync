@@ -24,7 +24,7 @@ import 'package:homesync/profile_screen.dart';
 import 'package:homesync/notification_manager.dart';
 import 'package:homesync/notification_test_screen.dart';
 import 'package:homesync/OptimizedDeviceHistoryScreen.dart';
-
+import 'package:homesync/about.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -88,6 +88,7 @@ class MyApp extends StatelessWidget {
           );
         },
         '/profile': (context) => ProfileScreen(),
+        '/about': (context) => AboutScreen(),
         /* '/deviceusage': (context) {
           final args = ModalRoute.of(context)?.settings.arguments
               as Map<String, dynamic>?;
