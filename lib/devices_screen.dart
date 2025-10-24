@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:homesync/adddevices.dart';
-// import 'package:homesync/notification_screen.dart';
+import 'package:homesync/notification_screen.dart'; // ADDED from first code
 import 'package:weather/weather.dart';
 import 'package:homesync/welcome_screen.dart';
 import 'package:homesync/relay_state.dart';
-// import 'package:homesync/databaseservice.dart';
+import 'package:homesync/databaseservice.dart'; // ADDED from first code
 import 'package:google_fonts/google_fonts.dart';
-import 'package:homesync/notification_manager.dart'; // Import notification manager to trigger persisted + local notifications
+import 'package:homesync/notification_manager.dart';
 import 'package:homesync/notification_service.dart';
 import 'package:homesync/usage.dart';
 import 'dart:async';
@@ -14,6 +14,7 @@ import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:homesync/services/relay_state_service.dart';
+import 'package:homesync/about.dart'; // ADDED from first code
 
 const String _apiKey = 'd542f2e03ea5728e77e367f19c0fb675';
 const String _cityName = 'Manila';
@@ -28,7 +29,7 @@ class DevicesScreen extends StatefulWidget {
 class DevicesScreenState extends State<DevicesScreen> {
   Weather? _currentWeather;
   int _selectedIndex = 1;
-  // DatabaseService instance removed as it was unused in this screen.
+  final DatabaseService _dbService = DatabaseService(); // ADDED from first code
 
   // Stream subscriptions for proper cleanup
   StreamSubscription<QuerySnapshot>? _appliancesSubscription;
@@ -78,7 +79,7 @@ class DevicesScreenState extends State<DevicesScreen> {
         });
       }
       print(
-        "Weather fetched: ${w.temperature?.celsius?.toStringAsFixed(1)}°C - ${w.weatherDescription}",
+        "Weather fetched successfully: ${w.temperature?.celsius?.toStringAsFixed(1)}°C - ${w.weatherDescription}",
       );
     } catch (e) {
       print("Failed to fetch weather: $e");
@@ -251,6 +252,7 @@ class DevicesScreenState extends State<DevicesScreen> {
     }
 
     print("🔊 Setting up appliances listener...");
+    print("Authenticated user: ${user.email}"); // ADDED from first code
 
     _appliancesSubscription = FirebaseFirestore.instance
         .collection('users')
@@ -266,8 +268,9 @@ class DevicesScreenState extends State<DevicesScreen> {
               _filterDevices();
 
               print(
-                "📡 Received appliances update: ${_devices.length} devices",
+                "Found ${_devices.length} devices from Firestore", // ADDED from first code
               );
+              print("Device fields: applianceName, applianceStatus, deviceType, icon, roomName"); // ADDED from first code
 
               for (int i = 0; i < min(_devices.length, 3); i++) {
                 final data = _devices[i].data();
@@ -316,7 +319,7 @@ class DevicesScreenState extends State<DevicesScreen> {
         List<Future<void>> updateFutures = [];
 
         // Turn off all 5 hardware relays
-  for (String relayKey in [
+        for (String relayKey in [
           'relay1',
           'relay3',
           'relay4',
@@ -324,11 +327,8 @@ class DevicesScreenState extends State<DevicesScreen> {
           'relay8',
         ]) {
           RelayState.relayStates[relayKey] = 0;
-          // Try centralized service first; if it fails, fallback to direct write.
           updateFutures.add(Future(() async {
             try {
-              // We don't have an applianceId here; setApplianceState requires one.
-              // Use a direct write via service by writing relay doc directly through Firestore instance.
               await FirebaseFirestore.instance
                   .collection('users')
                   .doc(userUid)
@@ -371,7 +371,7 @@ class DevicesScreenState extends State<DevicesScreen> {
           print('DevicesScreen: Failed to show master power system notification: $e');
         }
 
-        // Persist an individual device notification for each appliance (so they appear in the notifications feed)
+        // Persist an individual device notification for each appliance
         try {
           final List<Future<void>> notifFutures = [];
           for (var deviceDoc in _devices) {
@@ -385,7 +385,6 @@ class DevicesScreenState extends State<DevicesScreen> {
               applianceId: deviceDoc.id,
             ));
           }
-          // Run persist operations in parallel but don't block UI too long
           await Future.wait(notifFutures);
         } catch (e) {
           print('DevicesScreen: Failed to persist per-appliance notifications for master power OFF: $e');
@@ -401,6 +400,8 @@ class DevicesScreenState extends State<DevicesScreen> {
           print('DevicesScreen: Failed to show master power ON system notification: $e');
         }
       }
+
+      print("Master power toggled to ${newMasterState ? 'ON' : 'OFF'}"); // ADDED from first code
     } catch (e) {
       print("❌ Error during master power toggle: $e");
       if (mounted) {
@@ -415,6 +416,7 @@ class DevicesScreenState extends State<DevicesScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+        _listenToAppliances(); // ADDED from first code
       }
     }
   }
@@ -431,7 +433,7 @@ class DevicesScreenState extends State<DevicesScreen> {
             style: const TextStyle(color: Colors.white),
           ),
           backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 5), // CHANGED from 3 to 5 to match first code
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -454,7 +456,7 @@ class DevicesScreenState extends State<DevicesScreen> {
             return AlertDialog(
               title: Text("Confirm Turn Off"),
               content: Text(
-                "This device is currently controlled by IR sensor. Do you want to force it OFF?",
+                "This device is currently controlled by IR. Do you want to force it OFF?", // KEPT original wording from second code
               ),
               actions: <Widget>[
                 TextButton(
@@ -471,6 +473,8 @@ class DevicesScreenState extends State<DevicesScreen> {
         );
 
         if (confirmTurnOff != true) return;
+      } else if (RelayState.irControlledStates[relayKey] == true && currentStatus == 'OFF') {
+        // ADDED from first code - empty else block for IR controlled OFF state
       }
 
       // Check if LDR controlled
@@ -503,16 +507,22 @@ class DevicesScreenState extends State<DevicesScreen> {
 
       final newStatus = currentStatus == 'ON' ? 'OFF' : 'ON';
       print(
-        "🔄 Toggling device $applianceName from $currentStatus to $newStatus",
+        "Toggling device $applianceName from $currentStatus to $newStatus", // ADDED from first code
       );
+      print("Device data: $deviceData"); // ADDED from first code
 
       if (relayKey.isNotEmpty) {
         int newRelayState = newStatus == 'ON' ? 1 : 0;
+        RelayState.relayStates[relayKey] = newRelayState; // ADDED from first code
 
+        print("Updating relay state: $relayKey to $newRelayState"); // ADDED from first code
         try {
           final relayService = RelayStateService(firestore: FirebaseFirestore.instance);
-          // Use the centralized method which resolves appliance -> relay mapping and writes logs
-          await relayService.setApplianceStateForCurrentUser(applianceId: deviceDoc.id, turnOn: newStatus == 'ON', source: 'manual');
+          await relayService.setApplianceStateForCurrentUser(
+            applianceId: deviceDoc.id, 
+            turnOn: newStatus == 'ON', 
+            source: 'manual'
+          );
           print("✅ Updated $relayKey via RelayStateService to state=$newRelayState");
         } catch (e) {
           print('DevicesScreen: RelayStateService failed, falling back to direct write for $relayKey: $e');
@@ -532,13 +542,19 @@ class DevicesScreenState extends State<DevicesScreen> {
         }
       }
 
+      print("Updating appliance status in Firestore"); // ADDED from first code
       // Update appliance status
+      Map<String, dynamic> updateData = {
+        'applianceStatus': newStatus,
+        'lastToggleTime': FieldValue.serverTimestamp(), // ADDED from first code
+      };
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser!.uid)
           .collection('appliances')
           .doc(deviceDoc.id)
-          .update({'applianceStatus': newStatus});
+          .update(updateData);
 
       print("✅ Device $applianceName toggled successfully");
 
@@ -788,7 +804,9 @@ class DevicesScreenState extends State<DevicesScreen> {
                                     ),
                                   ),
                                   style: TextStyle(fontSize: 16),
-                                  onChanged: (value) {},
+                                  onChanged: (value) {
+                                    // Empty callback kept from first code
+                                  },
                                 ),
                               ),
                             ),
@@ -882,7 +900,7 @@ class DevicesScreenState extends State<DevicesScreen> {
                                             ),
                                           ),
                                           backgroundColor: Colors.red,
-                                          duration: const Duration(seconds: 3),
+                                          duration: const Duration(seconds: 5),
                                           behavior: SnackBarBehavior.floating,
                                         ),
                                       );
@@ -902,6 +920,15 @@ class DevicesScreenState extends State<DevicesScreen> {
                                               ? Colors.black
                                               : Color(0xFFD9D9D9),
                                       borderRadius: BorderRadius.circular(10),
+                                      // ADDED: Box shadows from first code
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.grey.withOpacity(0.3),
+                                          spreadRadius: 1,
+                                          blurRadius: 3,
+                                          offset: Offset(0, 2),
+                                        )
+                                      ],
                                     ),
                                     child: DeviceCard(
                                       applianceName: applianceName,
@@ -931,7 +958,8 @@ class DevicesScreenState extends State<DevicesScreen> {
     );
   }
 
-  void _showFlyout(BuildContext context) {
+  // UPDATED: Flyout menu from first code (with About screen added)
+   void _showFlyout(BuildContext context) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -946,7 +974,7 @@ class DevicesScreenState extends State<DevicesScreen> {
               end: Offset.zero,
             ).animate(animation),
             child: Material(
-              color: Colors.white,
+              color: const Color.fromARGB(255, 225, 225, 225),
               elevation: 8,
               child: Container(
                 width: MediaQuery.of(context).size.width * 0.7,
@@ -967,28 +995,46 @@ class DevicesScreenState extends State<DevicesScreen> {
                       builder: (context, snapshot) {
                         return Text(
                           snapshot.data ?? "Loading...",
-                          style: const TextStyle(
-                            fontSize: 20,
+                          style: GoogleFonts.mPlusRounded1c(
+                            fontSize: 25,
                             fontWeight: FontWeight.bold,
+                            color: Colors.black
                           ),
                         );
                       },
                     ),
                     const Divider(height: 32, thickness: 1),
                     ListTile(
-                      leading: const Icon(Icons.person),
-                      title: const Text("Profile"),
+                      leading: const Icon(Icons.person, size: 30, color: Colors.black),
+                     title: Text("Profile", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.pushNamed(context, '/profile');
                       },
                     ),
                     ListTile(
-                      leading: const Icon(Icons.notifications),
-                      title: const Text("Notifications"),
+                      leading: const Icon(Icons.notifications, size: 30, color: Colors.black),
+                      title: const Text("Notifications", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.pushNamed(context, '/notification');
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.info_rounded, size: 30, color: Colors.black),
+                      title: const Text("About", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/about');
+                      },
+                    ),
+
+                    ListTile(
+                      leading: const Icon(Icons.help_rounded, size: 30, color: Colors.black),
+                      title: const Text("Help?", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/help');
                       },
                     ),
                    
@@ -1065,6 +1111,9 @@ class DevicesScreenState extends State<DevicesScreen> {
     );
   }
 }
+
+// KEPT from first code - empty class
+class ON {}
 
 class DeviceCard extends StatelessWidget {
   final String applianceName;

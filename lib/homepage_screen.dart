@@ -617,133 +617,104 @@ class _HomeScreenState extends State<HomepageScreen> {
     );
   }
 
-  void _showFlyout(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    showModalBottomSheet(
-      isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: false,
+    void _showFlyout(BuildContext context) {
+    showGeneralDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            color: Colors.transparent,
-            child: GestureDetector(
-              onTap: () {},
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Transform.translate(
-                  offset: Offset(-90, -0),
-                  child: Container(
-                    width: screenSize.width * 0.75,
-                    height: screenSize.height - 0,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF3D3D3D),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(0),
-                        bottomLeft: Radius.circular(0),
-                      ),
+      barrierDismissible: true,
+      barrierLabel: "Dismiss",
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(-1, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: Material(
+              color: const Color.fromARGB(255, 225, 225, 225),
+              elevation: 8,
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.7,
+                height: MediaQuery.of(context).size.height,
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 40),
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.grey,
+                      child: Icon(Icons.home, size: 50, color: Colors.black),
                     ),
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(height: 60),
-                        Row(
-                          children: [
-                            Icon(Icons.home, size: 50, color: Colors.white),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  FutureBuilder<String>(
-                                    future: getCurrentUsername(),
-                                    builder: (context, snapshot) {
-                                      return Text(
-                                        snapshot.data ?? "User",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                      );
-                                    },
-                                  ),
-                                  Text(
-                                    _auth.currentUser?.email ?? "No email",
-                                    style: GoogleFonts.inter(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 40),
-                        ListTile(
-                          leading: Icon(Icons.person, color: Colors.white, size: 35),
-                          title: Text('Profile', style: GoogleFonts.inter(color: Colors.white)),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => ProfileScreen()),
-                            );
-                          },
-                        ),
-                        SizedBox(height: 15),
-                        ListTile(
-                          leading: Icon(Icons.notifications, color: Colors.white, size: 35),
-                          title: Text('Notification', style: GoogleFonts.inter(color: Colors.white)),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => NotificationScreen()),
-                            );
-                          },
-                        ),
-                        SizedBox(height: 15),
-                        ListTile(
-                          leading: Icon(Icons.info_outline, color: Colors.white, size: 35),
-                          title: Text('About', style: GoogleFonts.inter(color: Colors.white)),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => AboutScreen()),
-                            );
-                           
-                          },
-                        ),
-                        SizedBox(height: 15),
-                        ListTile(
-                          leading: Padding(
-                            padding: EdgeInsets.only(left: 5),
-                            child: Icon(Icons.logout, color: Colors.white, size: 35),
+                    const SizedBox(height: 16),
+                    FutureBuilder<String>(
+                      future: getCurrentUsername(),
+                      builder: (context, snapshot) {
+                        return Text(
+                          snapshot.data ?? "Loading...",
+                          style: GoogleFonts.mPlusRounded1c(
+                            fontSize: 25,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black
                           ),
-                          title: Text('Logout', style: GoogleFonts.inter(color: Colors.white)),
-                          onTap: () async {
-                            Navigator.pop(context);
-                            await _auth.signOut();
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(builder: (context) => WelcomeScreen()),
-                              (Route<dynamic> route) => false,
-                            );
-                          },
-                        ),
-                      ],
+                        );
+                      },
                     ),
-                  ),
+                    const Divider(height: 32, thickness: 1),
+                    ListTile(
+                      leading: const Icon(Icons.person, size: 30, color: Colors.black),
+                     title: Text("Profile", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/profile');
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.notifications, size: 30, color: Colors.black),
+                      title: const Text("Notifications", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/notification');
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.info_rounded, size: 30, color: Colors.black),
+                      title: const Text("About", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/about');
+                      },
+                    ),
+
+                    ListTile(
+                      leading: const Icon(Icons.help_rounded, size: 30, color: Colors.black),
+                      title: const Text("Help?", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/help');
+                      },
+                    ),
+                   
+                    const Spacer(),
+                    ListTile(
+                      leading: const Icon(Icons.logout, color: Colors.red),
+                      title: const Text(
+                        "Log Out",
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        await _auth.signOut();
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (context) => WelcomeScreen(),
+                          ),
+                          (Route<dynamic> route) => false,
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -9,10 +9,9 @@ class EmailOTPService {
   // ⚠️ IMPORTANT: Replace these with your actual email credentials
   // For Gmail: You need to use App Password, not your regular password
   // Generate App Password: Google Account > Security > 2-Step Verification > App passwords
-  static const String _senderEmail =
-      'homesync.noreply@gmail.com'; // Replace with your email
+  static const String _senderEmail = 'homesync.noreply@gmail.com';
   static const String _senderPassword =
-      'ptadxxqjyyjruhgj'; // Replace with App Password
+      'zsfzgebzfaxcqkkd'; // Gmail App Password
   static const String _senderName = 'HomeSync';
 
   // Generate 6-digit OTP
@@ -23,17 +22,8 @@ class EmailOTPService {
   }
 
   // Send OTP to user's email
-  Future<String> sendOTPToUser(String userId, String s) async {
+  Future<String> sendOTPToUser(String userId, String userEmail) async {
     try {
-      // Get user's email from Firebase Auth
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      final userData = userDoc.data();
-
-      if (userData == null || !userData.containsKey('email')) {
-        throw Exception('User email not found');
-      }
-
-      final userEmail = userData['email'] as String;
       final otp = _generateOTP();
       final expiryTime = DateTime.now().add(
         Duration(minutes: 5),
@@ -55,10 +45,10 @@ class EmailOTPService {
       // Send email
       await _sendEmail(userEmail, otp);
 
-      print('✅ OTP sent successfully to $userEmail');
+      print(' OTP sent successfully to $userEmail');
       return otp; // Return for development mode display
     } catch (e) {
-      print('❌ Error sending OTP: $e');
+      print(' Error sending OTP: $e');
       throw Exception('Failed to send OTP: ${e.toString()}');
     }
   }
@@ -66,17 +56,8 @@ class EmailOTPService {
   // Send email using SMTP
   Future<void> _sendEmail(String recipientEmail, String otp) async {
     try {
-      // Configure SMTP server (Gmail example)
+      // Configure SMTP server (Gmail)
       final smtpServer = gmail(_senderEmail, _senderPassword);
-
-      // Alternative SMTP configurations:
-      // For other email providers, use:
-      // final smtpServer = SmtpServer(
-      //   'smtp.your-provider.com',
-      //   port: 587,
-      //   username: _senderEmail,
-      //   password: _senderPassword,
-      // );
 
       // Create email message
       final message =
@@ -135,15 +116,15 @@ class EmailOTPService {
 
       // Send email
       final sendReport = await send(message, smtpServer);
-      print('✅ Email sent: ${sendReport.toString()}');
+      print(' Email sent: ${sendReport.toString()}');
     } on MailerException catch (e) {
-      print('❌ Email sending failed: ${e.message}');
+      print(' Email sending failed: ${e.message}');
       for (var p in e.problems) {
         print('Problem: ${p.code}: ${p.msg}');
       }
       throw Exception('Failed to send email: ${e.message}');
     } catch (e) {
-      print('❌ Unexpected error sending email: $e');
+      print('Unexpected error sending email: $e');
       throw Exception('Failed to send email: ${e.toString()}');
     }
   }
@@ -190,14 +171,14 @@ class EmailOTPService {
             .doc('current')
             .update({'isUsed': true});
 
-        print('✅ OTP verified successfully');
+        print(' OTP verified successfully');
         return true;
       } else {
-        print('❌ Invalid OTP entered');
+        print(' Invalid OTP entered');
         return false;
       }
     } catch (e) {
-      print('❌ Error verifying OTP: $e');
+      print(' Error verifying OTP: $e');
       throw Exception(e.toString());
     }
   }
@@ -217,7 +198,12 @@ class EmailOTPService {
         return true; // No previous OTP, can request
       }
 
-      final createdAt = (otpDoc.data()!['createdAt'] as Timestamp).toDate();
+      final otpData = otpDoc.data();
+      if (otpData == null || !otpData.containsKey('createdAt')) {
+        return true; // No createdAt field, can request
+      }
+
+      final createdAt = (otpData['createdAt'] as Timestamp).toDate();
       final now = DateTime.now();
       final difference = now.difference(createdAt);
 
@@ -243,7 +229,12 @@ class EmailOTPService {
         return 0;
       }
 
-      final createdAt = (otpDoc.data()!['createdAt'] as Timestamp).toDate();
+      final otpData = otpDoc.data();
+      if (otpData == null || !otpData.containsKey('createdAt')) {
+        return 0;
+      }
+
+      final createdAt = (otpData['createdAt'] as Timestamp).toDate();
       final now = DateTime.now();
       final difference = now.difference(createdAt);
       final remaining = 30 - difference.inSeconds;
@@ -267,11 +258,13 @@ class EmailOTPService {
 
       for (var doc in otpDocs.docs) {
         final data = doc.data();
-        final expiryTime = (data['expiryTime'] as Timestamp).toDate();
+        if (data.containsKey('expiryTime')) {
+          final expiryTime = (data['expiryTime'] as Timestamp).toDate();
 
-        if (DateTime.now().isAfter(expiryTime)) {
-          await doc.reference.delete();
-          print('🗑️ Deleted expired OTP');
+          if (DateTime.now().isAfter(expiryTime)) {
+            await doc.reference.delete();
+            print('Deleted expired OTP');
+          }
         }
       }
     } catch (e) {

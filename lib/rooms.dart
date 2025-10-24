@@ -7,6 +7,7 @@ import 'package:homesync/welcome_screen.dart';
 import 'package:homesync/room_data_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:homesync/about.dart';
 
 const String _apiKey = 'd542f2e03ea5728e77e367f19c0fb675'; 
 const String _cityName = 'Manila'; 
@@ -271,70 +272,123 @@ class RoomsState extends State<Rooms> {
               ),
 
               // Room List
-              const SizedBox(height: 20),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                   
-                    FocusScope.of(context).unfocus();
-                  },
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseAuth.instance.currentUser != null
-                        ? FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(FirebaseAuth.instance.currentUser!.uid)
-                            .collection('Rooms')
-                            .snapshots()
-                        : Stream.empty(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        print("Error fetching rooms: ${snapshot.error}");
-                        return Center(child: Text('Error loading rooms: ${snapshot.error}'));
-                      }
+             Expanded(
+  child: GestureDetector(
+    onTap: () {
+      FocusScope.of(context).unfocus();
+    },
+    child: StreamBuilder<QuerySnapshot>(
+      stream: FirebaseAuth.instance.currentUser != null
+          ? FirebaseFirestore.instance
+              .collection('users')
+              .doc(FirebaseAuth.instance.currentUser!.uid)
+              .collection('Rooms')
+              .snapshots()
+          : Stream.empty(),
+      builder: (context, roomSnapshot) {
+        if (roomSnapshot.hasError) {
+          print("Error fetching rooms: ${roomSnapshot.error}");
+          return Center(child: Text('Error loading rooms: ${roomSnapshot.error}'));
+        }
 
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(child: CircularProgressIndicator());
-                      }
-                      
-                      if (FirebaseAuth.instance.currentUser == null) {
-                         return Center(child: Text('Please log in to view your rooms.'));
-                      }
+        if (roomSnapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+        
+        if (FirebaseAuth.instance.currentUser == null) {
+          return Center(child: Text('Please log in to view your rooms.'));
+        }
 
-                      // Convert Firestore documents to RoomItem objects
-                      final List<RoomItem> allRooms = snapshot.data!.docs.map((doc) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        final roomName = data['roomName'] as String? ?? 'Unknown Room';
-                        final iconCodePoint = data['icon'] as int? ?? Icons.home.codePoint;
-                        
-                        return RoomItem(
-                          title: roomName,
-                          icon: _getIconFromCodePoint(iconCodePoint),
-                          appliances: [],
-                        );
-                      }).toList();
+        if (roomSnapshot.data!.docs.isEmpty) {
+          return Center(child: Text('No rooms found. Add a room to get started.'));
+        }
 
-                      if (allRooms.isEmpty) {
-                        return Center(child: Text('No rooms found. Add a room to get started.'));
-                      }
+        // Now fetch devices for all rooms
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(FirebaseAuth.instance.currentUser!.uid)
+              .collection('appliances')
+              .snapshots(),
+          builder: (context, deviceSnapshot) {
+            if (deviceSnapshot.hasError) {
+              print("Error fetching devices: ${deviceSnapshot.error}");
+              return Center(child: Text('Error loading devices: ${deviceSnapshot.error}'));
+            }
 
-                      
-                      final List<RoomItem> filteredRooms = _filterRooms(allRooms);
+            // Debug: Print all devices
+            if (deviceSnapshot.hasData) {
+              print("=== DEBUG: Total devices found: ${deviceSnapshot.data!.docs.length}");
+              for (final doc in deviceSnapshot.data!.docs) {
+                final data = doc.data() as Map<String, dynamic>;
+                print("Device: ${data['applianceName']} | Room: '${data['roomName']}'");
+              }
+            }
 
-                      if (filteredRooms.isEmpty && _searchQuery.isNotEmpty) {
-                        return Center(
-                          child: Text(
-                            "No rooms found matching '$_searchQuery'",
-                            style: GoogleFonts.inter(),
-                            textAlign: TextAlign.center,
-                          )
-                        );
-                      }
+            // Create a map of room name to appliance names
+            final Map<String, List<String>> roomDevices = {};
+            
+            if (deviceSnapshot.hasData) {
+              for (final doc in deviceSnapshot.data!.docs) {
+                final data = doc.data() as Map<String, dynamic>;
+                final roomName = data['roomName'] as String? ?? '';
+                final applianceName = data['applianceName'] as String? ?? 'Unknown Device';
+                
+                // Trim whitespace from room name to avoid mismatch issues
+                final trimmedRoomName = roomName.trim();
+                
+                if (trimmedRoomName.isNotEmpty) {
+                  if (!roomDevices.containsKey(trimmedRoomName)) {
+                    roomDevices[trimmedRoomName] = [];
+                  }
+                  roomDevices[trimmedRoomName]!.add(applianceName);
+                }
+              }
+              
+              print("=== DEBUG: Room devices map:");
+              roomDevices.forEach((room, devices) {
+                print("Room: '$room' has ${devices.length} devices: $devices");
+              });
+            }
 
-                      return _buildRoomsList(filteredRooms);
-                    },
-                  ),
-                ),
-              ),
+            // Convert Firestore documents to RoomItem objects with appliances
+            final List<RoomItem> allRooms = roomSnapshot.data!.docs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final roomName = (data['roomName'] as String? ?? 'Unknown Room').trim();
+              final iconCodePoint = data['icon'] as int? ?? Icons.home.codePoint;
+              
+              final appliances = roomDevices[roomName] ?? [];
+              
+              print("=== DEBUG: Room '$roomName' has ${appliances.length} appliances");
+              
+              return RoomItem(
+                title: roomName,
+                icon: _getIconFromCodePoint(iconCodePoint),
+                appliances: appliances,
+              );
+            }).toList();
+
+            // Filter rooms based on search query
+            final List<RoomItem> filteredRooms = _filterRooms(allRooms);
+
+            if (filteredRooms.isEmpty && _searchQuery.isNotEmpty) {
+              return Center(
+                child: Text(
+                  "No rooms found matching '$_searchQuery'",
+                  style: GoogleFonts.inter(),
+                  textAlign: TextAlign.center,
+                )
+              );
+            }
+
+            return _buildRoomsList(filteredRooms);
+        
+                 },
+        );
+      },
+    ),
+  ),
+),
             ],
           ),
         ),
@@ -604,9 +658,7 @@ class RoomsState extends State<Rooms> {
     );
   }
 
- //flyout
- 
-  void _showFlyout(BuildContext context) {
+void _showFlyout(BuildContext context) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -621,7 +673,7 @@ class RoomsState extends State<Rooms> {
               end: Offset.zero,
             ).animate(animation),
             child: Material(
-              color: Colors.white,
+              color: const Color.fromARGB(255, 225, 225, 225),
               elevation: 8,
               child: Container(
                 width: MediaQuery.of(context).size.width * 0.7,
@@ -642,48 +694,65 @@ class RoomsState extends State<Rooms> {
                       builder: (context, snapshot) {
                         return Text(
                           snapshot.data ?? "Loading...",
-                          style: const TextStyle(
-                            fontSize: 20,
+                          style: GoogleFonts.mPlusRounded1c(
+                            fontSize: 25,
                             fontWeight: FontWeight.bold,
+                            color: Colors.black
                           ),
                         );
                       },
                     ),
                     const Divider(height: 32, thickness: 1),
                     ListTile(
-                      leading: const Icon(Icons.person),
-                      title: const Text("Profile"),
+                      leading: const Icon(Icons.person, size: 30, color: Colors.black),
+                     title: Text("Profile", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.pushNamed(context, '/profile');
                       },
                     ),
                     ListTile(
-                      leading: const Icon(Icons.notifications),
-                      title: const Text("Notifications"),
+                      leading: const Icon(Icons.notifications, size: 30, color: Colors.black),
+                      title: const Text("Notifications", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.pushNamed(context, '/notification');
                       },
                     ),
-                    const Spacer(),
                     ListTile(
-                      leading: const Icon(Icons.logout, color: Colors.red),
-                      title: const Text(
-                        "Log Out",
-                        style: TextStyle(color: Colors.red),
-                      ),
-                      onTap: () async {
+                      leading: const Icon(Icons.info_rounded, size: 30, color: Colors.black),
+                      title: const Text("About", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
+                      onTap: () {
                         Navigator.pop(context);
-                        await FirebaseAuth.instance.signOut();
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                            builder: (context) => WelcomeScreen(),
-                          ),
-                          (Route<dynamic> route) => false,
-                        );
+                        Navigator.pushNamed(context, '/about');
                       },
                     ),
+
+                    ListTile(
+                      leading: const Icon(Icons.help_rounded, size: 30, color: Colors.black),
+                      title: const Text("Help?", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/help');
+                      },
+                    ),
+                   
+                    const Spacer(),
+                    ListTile(
+                  leading: const Padding(
+                    padding: EdgeInsets.only(left: 5),
+                    child: Icon(Icons.logout, color: Colors.red,),
+                  ),
+                  title: Text('Logout', style: GoogleFonts.inter(color: Colors.red)),
+                  onTap: () async {
+                    Navigator.pop(context); 
+                    await FirebaseAuth.instance.signOut();  // Change this line
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (context) => WelcomeScreen()),
+                      (Route<dynamic> route) => false,
+                    );
+                  },
+                ),
                   ],
                 ),
               ),
@@ -693,8 +762,6 @@ class RoomsState extends State<Rooms> {
       },
     );
   }
-
-
   /// Navigation Button
   Widget _buildNavButton(String title, bool isSelected, int index) {
     return Column(

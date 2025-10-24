@@ -31,6 +31,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:homesync/usage.dart' show UsageService;
 import 'package:homesync/scheduling_service.dart';
 import 'package:homesync/about.dart';
+import 'package:homesync/helpscreen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -143,6 +144,7 @@ class MyApp extends StatelessWidget {
         },
         '/profile': (context) => ProfileScreen(),
         '/about': (context) => AboutScreen(),
+        '/help': (context) => HelpScreen(),
          /* '/deviceusage': (context) {
           final args = ModalRoute.of(context)?.settings.arguments
               as Map<String, dynamic>?;

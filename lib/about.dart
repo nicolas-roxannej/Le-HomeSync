@@ -8,29 +8,41 @@ class AboutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE9E7E6),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFE9E7E6),
-         elevation: 1,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          iconSize: 45,
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'About & Legal',
-          style: GoogleFonts.jaldi(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        centerTitle: false,
-      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Back Button and Title
+            Padding(
+              padding: const EdgeInsets.only(left: 5, top: 65),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      size: 50,
+                      color: Colors.black,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'ABOUT & LEGAL',
+                    style: GoogleFonts.jaldi(
+                      fontSize: 23,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 30),
+            
             // App Info Section
             _buildAppInfoCard(),
             
@@ -412,7 +424,7 @@ class AboutScreen extends StatelessWidget {
   }
 
   String _getAboutUsText() {
-    return '''At MRLDTech, we believe that technology should make everyday living smarter, simpler, and more secure. Our mission is to bring the future of home automation into today’s households by providing innovative IoT-based solutions that connect and  control our home devices with just a tap.''';
+    return '''At MRLDTech, we believe that technology should make everyday living smarter, simpler, and more secure. Our mission is to bring the future of home automation into today's households by providing innovative IoT-based solutions that connect and  control our home devices with just a tap.''';
   }
 
   String _getEULAText() {
@@ -595,7 +607,7 @@ These Terms are governed by and interpreted under the laws of the Republic of th
 
 12. CHANGES TO THESE TERMS 
 
-We may update these Terms from time to time to reflect changes in our business or legal requirements. When we do, we will revise the “Last Updated” date and may notify you through the App or email. Continued use of HomeSync after any update means you accept the new Terms.
+We may update these Terms from time to time to reflect changes in our business or legal requirements. When we do, we will revise the "Last Updated" date and may notify you through the App or email. Continued use of HomeSync after any update means you accept the new Terms.
 
 13. CONTACT US
 
@@ -609,8 +621,8 @@ If you have questions, feedback, or requests related to these Terms, please cont
     return '''PRIVACY NOTICE
 Last updated: October 16, 2025
 
-This Privacy Notice for MRLD Tech Solutions ("we," "us," or "our") explains how and why we collect, store, use, and share ("process") your personal information when you use our mobile application HomeSync.(the “App”) and related services (the 
-“Services”). 
+This Privacy Notice for MRLD Tech Solutions ("we," "us," or "our") explains how and why we collect, store, use, and share ("process") your personal information when you use our mobile application HomeSync.(the "App") and related services (the 
+"Services"). 
 
 By using HomeSync, you agree to this Privacy Notice. If you do not agree, please do not use our App or Services. 
 
@@ -680,11 +692,11 @@ Most browsers and mobile operating systems include a Do-Not-Track (DNT) feature.
 
 8.  DO WE MAKE UPDATES TO THIS NOTICE? 
 
-Yes. We may update this Privacy Notice from time to time. When we do, we’ll update the “Last updated” date and notify users in the App or via email if there are significant changes.
+Yes. We may update this Privacy Notice from time to time. When we do, we'll update the "Last updated" date and notify users in the App or via email if there are significant changes.
 
 9. HOW CAN YOU REVIEW, UPDATE, OR DELETE YOUR DATA? 
 
-To review, update, or delete your data collected through HomeSync, please email mrldtechsolutions.support@gmail.com We’ll respond in accordance with applicable privacy laws.
+To review, update, or delete your data collected through HomeSync, please email mrldtechsolutions.support@gmail.com We'll respond in accordance with applicable privacy laws.
 
 10. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?
 
