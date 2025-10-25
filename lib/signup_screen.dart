@@ -13,7 +13,7 @@ class SignUpScreen extends StatefulWidget {
   State<SignUpScreen> createState() => _SignUpScreenState();
 }
 
-class _SignUpScreenState extends State<SignUpScreen> {
+class _SignUpScreenState extends State<SignUpScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   
   final _emailController = TextEditingController();
@@ -24,17 +24,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
   
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
   
   // Agreement checkboxes
   bool _agreeToEULA = false;
   bool _agreeToTerms = false;
   bool _agreeToPrivacy = false;
   
-  String? _emailError;
-  String? _passwordError;
-  String? _addressError;
-  
   final _emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+  
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    );
+    _fadeController.forward();
+  }
   
   @override
   void dispose() {
@@ -43,6 +57,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _addressController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
@@ -59,63 +74,108 @@ class _SignUpScreenState extends State<SignUpScreen> {
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 50),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(0),
+            borderRadius: BorderRadius.circular(24),
           ),
           backgroundColor: Colors.transparent,
           child: Container(
             width: MediaQuery.of(context).size.width * 0.9,
-            height: MediaQuery.of(context).size.height * 0.85,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE9E7E6),
+            height: MediaQuery.of(context).size.height * 0.82,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE9E7E6),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Column(
               children: [
-                // Title
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                  child: Text(
-                    title,
-                    style: GoogleFonts.jaldi(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(24),
+                      topRight: Radius.circular(24),
                     ),
-                    textAlign: TextAlign.center,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: GoogleFonts.jaldi(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 22,
+                            color: Colors.black87,
+                            letterSpacing: 0.3,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                
-                // divider
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
+                    physics: const BouncingScrollPhysics(),
                     child: _buildAgreementContent(content),
                   ),
                 ),
-                
-                // Close Button
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(1),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        elevation: 5,
-                        shadowColor: Colors.black.withOpacity(0.5),
-                      ),
-                      child: Text(
-                        'Close',
-                        style: GoogleFonts.judson(
-                          fontSize: 18,
-                          color: Colors.black,
-                          fontWeight: FontWeight.w600,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => Navigator.of(context).pop(),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.white,
+                                Colors.white.withOpacity(0.95),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Close',
+                              style: GoogleFonts.judson(
+                                fontSize: 17,
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -142,13 +202,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (index > 0) 
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Divider(color: Colors.black12, thickness: 0.5),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Container(
+                  height: 1,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.08),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            Text(
-              section,
-              style: GoogleFonts.inter(fontSize: 13, height: 1.5),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                section,
+                style: GoogleFonts.inter(
+                  fontSize: 13.5,
+                  height: 1.6,
+                  color: Colors.grey[800],
+                  letterSpacing: 0.2,
+                ),
+              ),
             ),
           ],
         );
@@ -160,366 +243,515 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE9E7E6),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(14),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Back arrow
-              Align(
-                alignment: Alignment.topLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 5, top: 65),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 50, color: Colors.black),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => WelcomeScreen()),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-              // Logo
-              Center(
-                child: Transform.translate(
-                  offset: const Offset(0, -30),
-                  child: Image.asset(
-                    'assets/homebg.png', 
-                    height: 200,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Text('HomeSync', style: TextStyle(fontSize: 40));
-                    },
-                  ),
-                ),
-              ),
-
-              // SIGN UP Title
-              Transform.translate(
-                offset: const Offset(-55, -250),
-                child: Text(
-                  'SIGN UP',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.jaldi(
-                    fontSize: 23,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-
-              // HOMESYNC 
-              Transform.translate(
-                offset: const Offset(1, -125),
-                child: Text(
-                  'HOMESYNC',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.mPlusRounded1c(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 25,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-
-              // Email Input
-              Transform.translate(
-                offset: const Offset(0, -100),
-                child: _buildValidatedTextField(
-                  controller: _emailController,
-                  icon: Icons.email, 
-                  hintText: 'Email Address',
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Email is required';
-                    }
-                    if (!_isValidEmail(value)) {
-                      return 'Please enter a valid email address';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-
-              // Username Input
-              Transform.translate(
-                offset: const Offset(0, -95),
-                child: _buildValidatedTextField(
-                  controller: _usernameController,
-                  icon: Icons.person, 
-                  hintText: 'Username',
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Username is required';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-
-              // Address Input
-              Transform.translate(
-                offset: const Offset(0, -90),
-                child: _buildValidatedTextField(
-                  controller: _addressController,
-                  icon: Icons.house, 
-                  hintText: 'House Address',
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'House address is required';
-                    }
-                    if (!_isValidAddress(value)) {
-                      return 'Please enter a valid house address';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-
-              // Password Input
-              Transform.translate(
-                offset: const Offset(0, -85),
-                child: _buildPasswordField(
-                  controller: _passwordController,
-                  hintText: 'Password',
-                  obscureText: _obscurePassword,
-                  toggleVisibility: () {
-                    setState(() {
-                      _obscurePassword = !_obscurePassword;
-                    });
-                  },
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Password is required';
-                    }
-                    if (value.length < 8) {
-                      return 'Password must be at least 8 characters long';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-
-              // Confirm Password Input
-              Transform.translate(
-                offset: const Offset(0, -80),
-                child: _buildPasswordField(
-                  controller: _confirmPasswordController,
-                  hintText: 'Re-Enter Password',
-                  obscureText: _obscureConfirmPassword,
-                  toggleVisibility: () {
-                    setState(() {
-                      _obscureConfirmPassword = !_obscureConfirmPassword;
-                    });
-                  },
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please confirm your password';
-                    }
-                    if (value != _passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-
-              // Legal Agreements Section
-              Transform.translate(
-                offset: const Offset(0, -70),
-                child: Column(
-                  children: [
-                    // EULA 
-                    _buildAgreementCheckbox(
-                      value: _agreeToEULA,
-                      onChanged: (value) {
-                        setState(() {
-                          _agreeToEULA = value ?? false;
-                        });
-                      },
-                      text: 'I agree to the ',
-                      linkText: 'End User License Agreement (EULA)',
-                      onTap: () {
-                        _showAgreementDialog(
-                          'End User License Agreement',
-                          _getEULAText(),
-                        );
-                      },
-                    ),
-                    
-                    // Terms of Use 
-                    _buildAgreementCheckbox(
-                      value: _agreeToTerms,
-                      onChanged: (value) {
-                        setState(() {
-                          _agreeToTerms = value ?? false;
-                        });
-                      },
-                      text: 'I agree to the ',
-                      linkText: 'Terms of Use',
-                      onTap: () {
-                        _showAgreementDialog(
-                          'Terms of Use',
-                          _getTermsText(),
-                        );
-                      },
-                    ),
-                    
-                    // Privacy Policy 
-                    _buildAgreementCheckbox(
-                      value: _agreeToPrivacy,
-                      onChanged: (value) {
-                        setState(() {
-                          _agreeToPrivacy = value ?? false;
-                        });
-                      },
-                      text: 'I agree to the ',
-                      linkText: 'Privacy Policy',
-                      onTap: () {
-                        _showAgreementDialog(
-                          'Privacy Policy',
-                          _getPrivacyText(),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-              // Create Account Button
-              Transform.translate(
-                offset: const Offset(0, -45),
-                child: ElevatedButton(
-                  onPressed: () async {
-                    // Check if all agreements are accepted
-                    if (!_agreeToEULA || !_agreeToTerms || !_agreeToPrivacy) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('You must agree to all terms and conditions to create an account.'),
-                          backgroundColor: Colors.red,
+      body: SafeArea(
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 5, top: 50),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      );
-                      return;
-                    }
-
-                    if (_formKey.currentState!.validate()) {
-                      try {
-                        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-                          email: _emailController.text.trim(),
-                          password: _passwordController.text.trim(),
-                        );
-
-                        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
-                          'email': _emailController.text.trim(),
-                          'username': _usernameController.text.trim(),
-                          'address': _addressController.text.trim(),
-                          'createdAt': Timestamp.now(),
-                          'agreedToEULA': true,
-                          'agreedToTerms': true,
-                          'agreedToPrivacy': true,
-                          'agreementDate': Timestamp.now(),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new,
+                            size: 20,
+                            color: Colors.black,
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Transform.translate(
+                      offset: const Offset(-1, -60),
+                      child: Hero(
+                        tag: 'logo',
+                        child: Image.asset(
+                          'assets/homebg.png',
+                          height: 200,
+                          errorBuilder: (context, error, stackTrace) => Text(
+                            'HomeSync',
+                            style: GoogleFonts.mPlusRounded1c(
+                              fontSize: 40,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: const Offset(0, -125),
+                    child: Text(
+                      'HOMESYNC',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.mPlusRounded1c(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 25,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: const Offset(0, -100),
+                    child: _buildModernTextField(
+                      controller: _emailController,
+                      icon: Icons.email_outlined,
+                      hintText: 'Email Address',
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Email required';
+                        }
+                        if (!_isValidEmail(value)) {
+                          return 'Enter a valid email';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: const Offset(0, -90),
+                    child: _buildModernTextField(
+                      controller: _usernameController,
+                      icon: Icons.person_outline,
+                      hintText: 'Username',
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Username required';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: const Offset(0, -80),
+                    child: _buildModernTextField(
+                      controller: _addressController,
+                      icon: Icons.home_outlined,
+                      hintText: 'House Address',
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'House address required';
+                        }
+                        if (!_isValidAddress(value)) {
+                          return 'Enter a valid house address';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: const Offset(0, -70),
+                    child: _buildModernPasswordField(
+                      controller: _passwordController,
+                      hintText: 'Password',
+                      obscureText: _obscurePassword,
+                      toggleVisibility: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
                         });
-
-                        if (mounted) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (context) => HomepageScreen()),
-                          );
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Password required';
                         }
-                      } on FirebaseAuthException catch (e) {
-                        if (mounted) {
+                        if (value.length < 8) {
+                          return 'Password must be at least 8 characters';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: const Offset(0, -60),
+                    child: _buildModernPasswordField(
+                      controller: _confirmPasswordController,
+                      hintText: 'Re-Enter Password',
+                      obscureText: _obscureConfirmPassword,
+                      toggleVisibility: () {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please confirm your password';
+                        }
+                        if (value != _passwordController.text) {
+                          return 'Passwords do not match';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 15,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    const Color(0xFFE9E7E6),
+                                    const Color(0xFFE9E7E6).withOpacity(0.6),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.verified_user_outlined,
+                                size: 20,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Legal Agreements',
+                              style: GoogleFonts.jaldi(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildModernAgreementCheckbox(
+                          value: _agreeToEULA,
+                          onChanged: (value) {
+                            setState(() {
+                              _agreeToEULA = value ?? false;
+                            });
+                          },
+                          text: 'I agree to the ',
+                          linkText: 'End User License Agreement (EULA)',
+                          onTap: () {
+                            _showAgreementDialog(
+                              'End User License Agreement',
+                              _getEULAText(),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _buildModernAgreementCheckbox(
+                          value: _agreeToTerms,
+                          onChanged: (value) {
+                            setState(() {
+                              _agreeToTerms = value ?? false;
+                            });
+                          },
+                          text: 'I agree to the ',
+                          linkText: 'Terms of Use',
+                          onTap: () {
+                            _showAgreementDialog(
+                              'Terms of Use',
+                              _getTermsText(),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _buildModernAgreementCheckbox(
+                          value: _agreeToPrivacy,
+                          onChanged: (value) {
+                            setState(() {
+                              _agreeToPrivacy = value ?? false;
+                            });
+                          },
+                          text: 'I agree to the ',
+                          linkText: 'Privacy Policy',
+                          onTap: () {
+                            _showAgreementDialog(
+                              'Privacy Policy',
+                              _getPrivacyText(),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  Container(
+                    height: 56,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: const LinearGradient(
+                        colors: [Colors.black87, Colors.black],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : () async {
+                        if (!_agreeToEULA || !_agreeToTerms || !_agreeToPrivacy) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(e.message ?? 'An error occurred during signup.'),
-                              backgroundColor: Colors.red,
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.error_outline, color: Colors.white),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'You must agree to all terms and conditions to create an account.',
+                                      style: GoogleFonts.inter(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFFD32F2F),
+                              duration: const Duration(seconds: 4),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              margin: const EdgeInsets.all(16),
                             ),
                           );
+                          return;
                         }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('An unexpected error occurred: ${e.toString()}'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(1),
-                      side: const BorderSide(color: Colors.black, width: 1),
-                    ),
-                    elevation: 5,
-                    shadowColor: Colors.black.withOpacity(0.5),
-                  ),
-                  child: Text(
-                    'Create Account',
-                    style: GoogleFonts.judson(
-                      fontSize: 20,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-              ),
 
-              // Login Link
-              Transform.translate(
-                offset: const Offset(0, -15),
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => LoginScreen()),
-                    );
-                  },
-                  child: Text(
-                    'Already have an account? LOG IN',
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
+                        if (_formKey.currentState!.validate()) {
+                          setState(() {
+                            _isLoading = true;
+                          });
+
+                          try {
+                            UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+                              email: _emailController.text.trim(),
+                              password: _passwordController.text.trim(),
+                            );
+
+                            await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+                              'email': _emailController.text.trim(),
+                              'username': _usernameController.text.trim(),
+                              'address': _addressController.text.trim(),
+                              'createdAt': Timestamp.now(),
+                              'agreedToEULA': true,
+                              'agreedToTerms': true,
+                              'agreedToPrivacy': true,
+                              'agreementDate': Timestamp.now(),
+                            });
+
+                            if (mounted) {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (context) => const HomepageScreen()),
+                              );
+                            }
+                          } on FirebaseAuthException catch (e) {
+                            setState(() {
+                              _isLoading = false;
+                            });
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.error_outline, color: Colors.white),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          e.message ?? 'An error occurred during signup.',
+                                          style: GoogleFonts.inter(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: const Color(0xFFD32F2F),
+                                  duration: const Duration(seconds: 4),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  margin: const EdgeInsets.all(16),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            setState(() {
+                              _isLoading = false;
+                            });
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.error_outline, color: Colors.white),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          'An unexpected error occurred: ${e.toString()}',
+                                          style: GoogleFonts.inter(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: const Color(0xFFD32F2F),
+                                  duration: const Duration(seconds: 4),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  margin: const EdgeInsets.all(16),
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : Text(
+                              'Create Account',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 20),
+                  Center(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        );
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                      ),
+                      child: Text(
+                        'Already have an account? LOG IN',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildAgreementCheckbox({
+  Widget _buildModernAgreementCheckbox({
     required bool value,
     required Function(bool?) onChanged,
     required String text,
     required String linkText,
     required VoidCallback onTap,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9E7E6).withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         children: [
-          Checkbox(
-            value: value,
-            onChanged: onChanged,
-            activeColor: Colors.black,
+          SizedBox(
+            height: 24,
+            width: 24,
+            child: Checkbox(
+              value: value,
+              onChanged: onChanged,
+              activeColor: Colors.black87,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
           ),
+          const SizedBox(width: 12),
           Expanded(
             child: Wrap(
               children: [
                 Text(
                   text,
-                  style: GoogleFonts.inter(fontSize: 13, color: Colors.black87),
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: Colors.grey[800],
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 GestureDetector(
                   onTap: onTap,
@@ -527,8 +759,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     linkText,
                     style: GoogleFonts.inter(
                       fontSize: 13,
-                      color: Colors.blue,
+                      color: Colors.blue[700],
                       decoration: TextDecoration.underline,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -540,65 +773,167 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  Widget _buildValidatedTextField({
+  Widget _buildModernTextField({
     required TextEditingController controller,
     required IconData icon,
     required String hintText,
     required String? Function(String?) validator,
-    bool obscureText = false,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: TextFormField(
         controller: controller,
-        obscureText: obscureText,
         validator: validator,
+        style: GoogleFonts.inter(
+          fontSize: 15,
+          color: Colors.black87,
+        ),
         decoration: InputDecoration(
           filled: true,
           fillColor: Colors.transparent,
-          prefixIcon: Icon(icon, color: Colors.black),
+          prefixIcon: Icon(
+            icon,
+            color: Colors.black54,
+            size: 22,
+          ),
           hintText: hintText,
-          hintStyle: const TextStyle(color: Colors.grey),
-          errorStyle: const TextStyle(color: Colors.red),
-          border: const UnderlineInputBorder(),
+          hintStyle: GoogleFonts.inter(
+            color: Colors.black38,
+            fontSize: 15,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: Colors.black,
+              width: 2,
+            ),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: Colors.red,
+              width: 1.5,
+            ),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: Colors.red,
+              width: 2,
+            ),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 18,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildPasswordField({
+  Widget _buildModernPasswordField({
     required TextEditingController controller,
     required String hintText,
     required bool obscureText,
     required VoidCallback toggleVisibility,
     required String? Function(String?) validator,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: TextFormField(
         controller: controller,
         obscureText: obscureText,
         validator: validator,
+        style: GoogleFonts.inter(
+          fontSize: 15,
+          color: Colors.black87,
+        ),
         decoration: InputDecoration(
           filled: true,
           fillColor: Colors.transparent,
-          prefixIcon: const Icon(Icons.lock, color: Colors.black),
+          prefixIcon: const Icon(
+            Icons.lock_outline,
+            color: Colors.black54,
+            size: 22,
+          ),
           suffixIcon: IconButton(
             icon: Icon(
-              obscureText ? Icons.visibility : Icons.visibility_off,
-              color: Colors.black54,
+              obscureText ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+              color: Colors.black45,
+              size: 22,
             ),
             onPressed: toggleVisibility,
           ),
           hintText: hintText,
-          hintStyle: const TextStyle(color: Colors.grey),
-          errorStyle: const TextStyle(color: Colors.red),
-          border: const UnderlineInputBorder(),
+          hintStyle: GoogleFonts.inter(
+            color: Colors.black38,
+            fontSize: 15,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: Colors.black,
+              width: 2,
+            ),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: Colors.red,
+              width: 1.5,
+            ),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: Colors.red,
+              width: 2,
+            ),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 18,
+          ),
         ),
       ),
     );
   }
-
 
   String _getEULAText() {
     return '''END USER LICENSE AGREEMENT (EULA)
@@ -780,7 +1115,7 @@ These Terms are governed by and interpreted under the laws of the Republic of th
 
 12. CHANGES TO THESE TERMS 
 
-We may update these Terms from time to time to reflect changes in our business or legal requirements. When we do, we will revise the “Last Updated” date and may notify you through the App or email. Continued use of HomeSync after any update means you accept the new Terms.
+We may update these Terms from time to time to reflect changes in our business or legal requirements. When we do, we will revise the "Last Updated" date and may notify you through the App or email. Continued use of HomeSync after any update means you accept the new Terms.
 
 13. CONTACT US
 
@@ -794,8 +1129,8 @@ If you have questions, feedback, or requests related to these Terms, please cont
     return '''PRIVACY NOTICE
 Last updated: October 16, 2025
 
-This Privacy Notice for MRLD Tech Solutions ("we," "us," or "our") explains how and why we collect, store, use, and share ("process") your personal information when you use our mobile application HomeSync.(the “App”) and related services (the 
-“Services”). 
+This Privacy Notice for MRLD Tech Solutions ("we," "us," or "our") explains how and why we collect, store, use, and share ("process") your personal information when you use our mobile application HomeSync.(the "App") and related services (the 
+"Services"). 
 
 By using HomeSync, you agree to this Privacy Notice. If you do not agree, please do not use our App or Services. 
 
@@ -865,11 +1200,11 @@ Most browsers and mobile operating systems include a Do-Not-Track (DNT) feature.
 
 8.  DO WE MAKE UPDATES TO THIS NOTICE? 
 
-Yes. We may update this Privacy Notice from time to time. When we do, we’ll update the “Last updated” date and notify users in the App or via email if there are significant changes.
+Yes. We may update this Privacy Notice from time to time. When we do, we'll update the "Last updated" date and notify users in the App or via email if there are significant changes.
 
 9. HOW CAN YOU REVIEW, UPDATE, OR DELETE YOUR DATA? 
 
-To review, update, or delete your data collected through HomeSync, please email mrldtechsolutions.support@gmail.com We’ll respond in accordance with applicable privacy laws.
+To review, update, or delete your data collected through HomeSync, please email mrldtechsolutions.support@gmail.com We'll respond in accordance with applicable privacy laws.
 
 10. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?
 

@@ -22,11 +22,13 @@ class DeviceInfoScreen extends StatefulWidget {
   DeviceInfoScreenState createState() => DeviceInfoScreenState();
 }
 
-class DeviceInfoScreenState extends State<DeviceInfoScreen> {
+class DeviceInfoScreenState extends State<DeviceInfoScreen> with SingleTickerProviderStateMixin {
   final DatabaseService _dbService = DatabaseService();
   StreamSubscription? _applianceSubscription;
   final FirebaseAuth _auth = FirebaseAuth.instance; 
   late UsageService _usageService; // Instance of UsageService
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   // to hold data from Firestore and for editing
   bool _isDeviceOn = false;
@@ -60,6 +62,16 @@ class DeviceInfoScreenState extends State<DeviceInfoScreen> {
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 600),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    _animationController.forward();
+    
     _usageService = UsageService(); // UsageService
     final userId = _auth.currentUser?.uid;
     if (userId != null) {
@@ -74,6 +86,7 @@ class DeviceInfoScreenState extends State<DeviceInfoScreen> {
 
   @override
   void dispose() {
+    _animationController.dispose();
     _applianceSubscription?.cancel();
     _periodicUsageSubscription?.cancel(); // Cancel new subscription
     _kWhRateController.dispose(); // Dispose new controller
@@ -637,7 +650,12 @@ class DeviceInfoScreenState extends State<DeviceInfoScreen> {
       print("Error updating appliance status: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to update status: ${e.toString()}")),
+          SnackBar(
+            content: Text("Failed to update status: ${e.toString()}"),
+            backgroundColor: Colors.red.shade400,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
       }
     }
@@ -664,341 +682,182 @@ class DeviceInfoScreenState extends State<DeviceInfoScreen> {
       print("User kWh rate updated successfully");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("kWh rate updated successfully!")),
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text("kWh rate updated successfully!"),
+              ],
+            ),
+            backgroundColor: Colors.green.shade400,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
       }
     } catch (e) {
       print("Error updating user kWh rate: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to update kWh rate: ${e.toString()}"))
+          SnackBar(
+            content: Text("Failed to update kWh rate: ${e.toString()}"),
+            backgroundColor: Colors.red.shade400,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
       }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFE9E7E6),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFE9E7E6),
-        elevation: 0, 
-        leading: IconButton(
-          icon: Transform.translate(
-        offset: Offset(5, 0),
-          child: Icon(Icons.arrow_back, size: 50, color: Colors.black), 
-          ),
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Color(0xFFE9E7E6),
+    appBar: AppBar(
+      backgroundColor: Color(0xFFE9E7E6),
+      leading: Container(
+        margin: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
-      
-         title: Transform.translate(
-      offset: Offset(2, 5),
-        child: Text(
-          _currentDeviceName,
-          style: GoogleFonts.jaldi(
-            textStyle: TextStyle(fontSize: 23, fontWeight: FontWeight.bold, color: Colors.black),
+      ),
+      title: Text(
+        _currentDeviceName,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.poppins(
+          textStyle: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
           ),
-          overflow: TextOverflow.ellipsis,
         ),
-         ),
-        actions: [
+      ),
+  actions: [
           _isRefreshing
               ? Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)),
+                  padding: const EdgeInsets.all(16.0),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black87),
+                    ),
+                  ),
                 )
               : IconButton(
-                     icon: Transform.translate(
-                offset: Offset(-20, 5), 
-                  child: Icon(Icons.refresh, color: Colors.black, size: 30,),
-                     ),
+                  icon: Icon(Icons.refresh_rounded, color: Colors.black87, size: 26),
                   onPressed: _handleRefresh,
                 ),
         ],
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Device Status
-                Container( 
-                    padding: EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[350],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: _handleRefresh,
+            color: Colors.black87,
+            child: SingleChildScrollView(
+              physics: AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Modern Device Status Card
+                  _buildDeviceStatusCard(),
+                  
+                  SizedBox(height: 24),
+                  
+                  // Energy Usage Section Header
+                  _buildSectionHeader(),
+                  
+                  SizedBox(height: 16),
+                  
+                  // Energy Stats Cards
+                  _isLoadingUsage
+                      ? _buildLoadingCard()
+                      : Column(
                           children: [
-                            Flexible( 
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    _getIconForDevice(_currentDeviceName), // icon status design
-                                    size: 30,
-                                    color: _isDeviceOn ? Colors.black : Colors.grey,
-                                  ),
-                                  SizedBox(width: 12),
-                                  Flexible( 
-                                    child: Text(
-                                      _currentDeviceName, // Use state variable
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      overflow: TextOverflow.ellipsis, 
-                                  ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: _isDeviceOn,
-                              onChanged: (value) {
-                                _toggleDeviceStatus(value);
-                              },
-                              activeColor: Colors.white,
-                              activeTrackColor: Colors.black,
-                              inactiveThumbColor: Colors.white,
-                              inactiveTrackColor: Colors.black,
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 20),
-                        Text(
-                          "Current Status",
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                        SizedBox(height: 8), // on off label
-                        Text(
-                          _isDeviceOn ? "ON" : "OFF",
-                          style: GoogleFonts.inter(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: _isDeviceOn ? Colors.black : Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                // Energy Usage
-                Transform.translate(
-                  offset: Offset(0, 5),
-                  child: Row( 
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Energy Usage",
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Row( 
-                        children: [
-                          Text(_selectedPeriod), // Display selected period
-                          IconButton(
-                            icon: Icon(Icons.calendar_month),
-                            onPressed: () => _showPeriodPicker(), // Call method to show period picker
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                // Energy Stats
-                SizedBox(height: 20),
-                Transform.translate(
-                  offset: Offset(0, -15),
-                  child: _isLoadingUsage
-                      ? Center(child: CircularProgressIndicator()) 
-                      : Column( 
-                          children: [
-                            _buildEnergyStatCard(
+                            _buildModernEnergyCard(
                               title: "Total Usage",
-                              value: "${_totalUsageKwh.toStringAsFixed(2)} kWh", 
+                              value: "${_totalUsageKwh.toStringAsFixed(2)} kWh",
                               period: _selectedPeriod,
-                              icon: Icons.flash_on,
+                              icon: Icons.bolt_rounded,
+                             
+                              gradient: LinearGradient(
+                                colors: [ Color(0xFFFFB84D),  const Color.fromARGB(255, 255, 145, 1)],
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            _buildModernEnergyCard(
+                              title: "Estimated Cost",
+                              value: "${_totalElectricityCost.toStringAsFixed(2)}",
+                              period: _selectedPeriod,
+                              icon: Icons.payments_rounded,
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF4CAF50),Colors.lightGreen],
+                              ),
                             ),
                           ],
                         ),
-                ),
-                 Transform.translate(
-                  offset: Offset(0, -9),
-                  child: _buildEnergyStatCard(
-                    title: "Estimated Cost",
-                    value: "₱${(_totalElectricityCost).toStringAsFixed(2)}", 
-                    period: _selectedPeriod, 
-                    icon: Icons.attach_money,
-                  ),
-                ),
-              
-                Container( 
-                    margin: const EdgeInsets.only(bottom: 0, top: 0), 
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    
-                    child: Row(
-                      children: [
-
-                        Container(
-                          padding: EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(Icons.attach_money, color: Colors.blue),
-                        ),
-                        SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "kWh Rate",
-                                style: GoogleFonts.inter(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              TextField(
-                                controller: _kWhRateController,
-                                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                                  
-                                  hintText: "Enter KWH rate",
-                                  suffixText: "₱/kWh",
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                  
+                  SizedBox(height: 24),
+                  
+                  // kWh Rate Card
+                  _buildKwhRateCard(),
+                  
+                  SizedBox(height: 24),
+                  
+                  // Appliance Details Section
+                  Text(
+                    "Appliance Details",
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
                     ),
                   ),
-                SizedBox(height: 24), 
-                Text(
-                  "Appliance Details",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                  
+                  SizedBox(height: 16),
+                  
+                  // Details Fields
+                  _buildDetailField(
+                    label: 'Appliance Name',
+                    value: _currentDeviceName,
+                    icon: Icons.label_outline_rounded,
                   ),
-                ),
-                SizedBox(height: 16),
-
-                TextField(
-                  controller: TextEditingController(text: _currentDeviceName),
-                  enabled: false, 
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white, 
-                    labelText: 'Appliance Name',
-                    labelStyle: GoogleFonts.jaldi(
-                      color: Colors.grey,
-                      fontSize: 20,
-                    ),
-                    border: OutlineInputBorder(),
-                    disabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.grey),
-                    ),
+                  
+                  SizedBox(height: 12),
+                  
+                  _buildDetailField(
+                    label: 'Room Name',
+                    value: _currentRoomName,
+                    icon: Icons.house,
                   ),
-                  style: GoogleFonts.jaldi(
-                    fontSize: 20,
-                    color: Colors.black,
+                  
+                  SizedBox(height: 12),
+                  
+                  _buildDetailField(
+                    label: 'Device Type',
+                    value: _currentDeviceType,
+                    icon: Icons.devices_other_rounded,
                   ),
-                ),
-
-                SizedBox(height: 8),
-
-                TextField(
-                  controller: TextEditingController(text: _currentRoomName),
-                  enabled: false,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white, 
-                    labelText: 'Room Name',
-                    labelStyle: GoogleFonts.jaldi(
-                      color: Colors.grey,
-                      fontSize: 20,
-                    ),
-                    border: OutlineInputBorder(),
-                    disabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.grey),
-                    ),
-                  ),
-                  style: GoogleFonts.jaldi(
-                    fontSize: 20,
-                    color: Colors.black,
-                  ),
-                ),
-                
-                SizedBox(height: 8),
-                TextField(
-                  controller: TextEditingController(text: _currentDeviceType),
-                  enabled: false,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white, 
-                    labelText: 'Device Type',
-                    labelStyle: GoogleFonts.jaldi(
-                      color: Colors.grey,
-                      fontSize: 20,
-                    ),
-                    border: OutlineInputBorder(),
-                    disabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.grey),
-                    ),
-                  ),
-                  style: GoogleFonts.jaldi(
-                    fontSize: 20,
-                    color: Colors.black,
-                  ),
-                ),
-                
-                SizedBox(height: 8),
-                
-                SizedBox(height: 16),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                     padding: EdgeInsets.symmetric(vertical: 13, horizontal: 105),
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(0),
-                      side: BorderSide(color: Colors.black, width: 1),
-                    )
-                  ),
-                  onPressed: _updateDeviceDetails,
-                  child: Text('Save Changes',
-                  style: GoogleFonts.judson(
-                      fontSize: 20,
-                      color: Colors.black,
-                  ),
-                      ),
-                ),
-              ],
+                  
+                  SizedBox(height: 24),
+                  
+                  // Save Button
+                  _buildSaveButton(),
+                  
+                  SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         ),
@@ -1006,13 +865,243 @@ class DeviceInfoScreenState extends State<DeviceInfoScreen> {
     );
   }
 
-  Widget _buildEnergyStatCard({required String title, required String value, required String period, required IconData icon}) {
+  Widget _buildDeviceStatusCard() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10), 
-      padding: EdgeInsets.all(16),
+      padding: EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: _isDeviceOn 
+            ? [Color(0xFF2C3E50), Color(0xFF3498DB)]
+            : [Color(0xFF95a5a6), Color(0xFF7f8c8d)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: _isDeviceOn 
+              ? Color(0xFF3498DB).withOpacity(0.3)
+              : Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        _getIconForDevice(_currentDeviceName),
+                        size: 32,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _currentDeviceName,
+                            style: GoogleFonts.poppins(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            _currentRoomName.isNotEmpty ? _currentRoomName : 'No Room',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Transform.scale(
+                scale: 0.9,
+                child: Switch(
+                  value: _isDeviceOn,
+                  onChanged: (value) {
+                    _toggleDeviceStatus(value);
+                  },
+                  activeColor: Color(0xFF2ECC71),
+                  activeTrackColor: Color(0xFF2ECC71).withOpacity(0.5),
+                  inactiveThumbColor: Colors.white,
+                  inactiveTrackColor: Colors.white.withOpacity(0.3),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 20),
+          Container(
+            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Current Status",
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: _isDeviceOn ? Color(0xFF2ECC71) : Colors.white54,
+                        shape: BoxShape.circle,
+                        boxShadow: _isDeviceOn
+                            ? [
+                                BoxShadow(
+                                  color: Color(0xFF2ECC71),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : [],
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      _isDeviceOn ? "ON" : "OFF",
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          "Energy Usage",
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        InkWell(
+          onTap: () => _showPeriodPicker(),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.black12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _selectedPeriod,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Icon(Icons.calendar_today_rounded, size: 16, color: Colors.black54),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoadingCard() {
+    return Container(
+      padding: EdgeInsets.all(40),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Column(
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667eea)),
+              strokeWidth: 3,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Loading usage data...',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.black54,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernEnergyCard({
+    required String title,
+    required String value,
+    required String period,
+    required IconData icon,
+    required Gradient gradient,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -1024,39 +1113,48 @@ class DeviceInfoScreenState extends State<DeviceInfoScreen> {
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(10),
+            padding: EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+              gradient: gradient,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: gradient.colors.first.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
-            child: Icon(icon, color: Colors.blue),
+            child: Icon(icon, color: Colors.white, size: 28),
           ),
           SizedBox(width: 16),
-          Expanded( 
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: Colors.grey[600],
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 SizedBox(height: 4),
                 Text(
                   value,
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  style: GoogleFonts.poppins(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
                   ),
                 ),
                 SizedBox(height: 2),
                 Text(
                   period,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: Colors.grey[500],
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: Colors.black45,
                   ),
                 ),
               ],
@@ -1067,86 +1165,174 @@ class DeviceInfoScreenState extends State<DeviceInfoScreen> {
     );
   }
 
-  IconData _getIconForDevice(String deviceName) {
-    final name = deviceName.toLowerCase();
-    if (name.contains("light")) {
-      return Icons.lightbulb_outline; 
-    } else if (name.contains("socket") || name.contains("plug")) {
-      return Icons.power_outlined;
-    } else if (name.contains("ac") || name.contains("air conditioner") || name.contains("aircon")) {
-      return Icons.ac_unit_outlined;
-    } else if (name.contains("tv") || name.contains("television")) {
-      return Icons.tv_outlined;
-    } else if (name.contains("fan")) {
-      return Icons.air_outlined;
-    }
-    return Icons.devices_other_outlined; 
-  }
-  void _showPeriodPicker() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Text('Select Period',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+  Widget _buildKwhRateCard() {
+    return Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 4),
           ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.lightBlueAccent, Colors.blue],
+              ),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(Icons.monetization_on_rounded, color: Colors.white, size: 28),
+          ),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "kWh Rate",
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: _kWhRateController,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    hintText: "Enter rate",
+                    hintStyle: GoogleFonts.poppins(color: Colors.black38),
+                    suffixText: '₱/kWh',
+                    suffixStyle: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.black54,
+                    ),
+                    filled: true,
+                    fillColor: Color(0xFFF5F5F5),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.black, width: 1),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailField({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Color(0xFFF5F5F5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 22, color: Colors.black54),
+          ),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.black45,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  value.isNotEmpty ? value : 'Not set',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return InkWell(
+      onTap: _updateDeviceDetails,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(vertical: 18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.black, Colors.black],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 12,
+              offset: Offset(0, 6),
+            ),
+          ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ListTile(
-              tileColor: Colors.white,
-              title: Text('Daily'),
-              onTap: () {
-                if (mounted) {
-                  setState(() {
-                    _selectedPeriod = 'Daily';
-                  });
-                }
-                _listenToPeriodicUsageData();
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              tileColor: Colors.white,
-              title: Text('Weekly'),
-              onTap: () {
-                if (mounted) {
-                  setState(() {
-                    _selectedPeriod = 'Weekly';
-                  });
-                }
-                _listenToPeriodicUsageData();
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              tileColor: Colors.white,
-              title: Text('Monthly'),
-              onTap: () {
-                if (mounted) {
-                  setState(() {
-                    _selectedPeriod = 'Monthly';
-                  });
-                }
-                _listenToPeriodicUsageData();
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              tileColor: Colors.white,
-              title: Text('Yearly'),
-              onTap: () {
-                if (mounted) {
-                  setState(() {
-                    _selectedPeriod = 'Yearly';
-                  });
-                }
-                _listenToPeriodicUsageData();
-                Navigator.pop(context);
-              },
+            Icon(Icons.save_rounded, color: Colors.white, size: 22),
+            SizedBox(width: 12),
+            Text(
+              'Save Changes',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -1154,12 +1340,130 @@ class DeviceInfoScreenState extends State<DeviceInfoScreen> {
     );
   }
 
+  IconData _getIconForDevice(String deviceName) {
+  // Use the actual icon from Firebase if available
+  if (_currentIcon.codePoint != Icons.devices.codePoint) {
+    return _currentIcon;
+  }
+  
+  // Fallback to name-based detection if icon not set
+  final name = deviceName.toLowerCase();
+  if (name.contains("light")) {
+    return Icons.lightbulb_rounded;
+  } else if (name.contains("socket") || name.contains("plug")) {
+    return Icons.power_rounded;
+  } else if (name.contains("ac") || name.contains("air conditioner") || name.contains("aircon")) {
+    return Icons.ac_unit_rounded;
+  } else if (name.contains("tv") || name.contains("television")) {
+    return Icons.tv_rounded;
+  } else if (name.contains("fan")) {
+    return Icons.air_rounded;
+  }
+  return Icons.devices_other_rounded;
+}
+
+   void _showPeriodPicker() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Container(
+          padding: EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Period',
+                style: GoogleFonts.inter(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              SizedBox(height: 20),
+              _buildPeriodOption('Daily', Icons.today_rounded),
+              _buildPeriodOption('Weekly', Icons.view_week_rounded),
+              _buildPeriodOption('Monthly', Icons.calendar_month_rounded),
+              _buildPeriodOption('Yearly', Icons.calendar_today_rounded),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+ Widget _buildPeriodOption(String period, IconData icon) {
+    bool isSelected = _selectedPeriod == period;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedPeriod = period;
+        });
+        _listenToPeriodicUsageData();
+        Navigator.pop(context);
+      },
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.grey.withOpacity(0.5) : Colors.grey[200],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? Colors.black : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.black : Colors.black,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: isSelected ? Colors.white : Colors.white,
+                size: 20,
+              ),
+            ),
+            SizedBox(width: 16),
+            Text(
+              period,
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? Color(0xFF1A1A1A) : Color(0xFF1A1A1A),
+              ),
+            ),
+           Spacer(),
+            if (isSelected)
+              Icon(Icons.check_circle_rounded, color: Colors.black, size: 24),
+              
+          ],
+        ),
+          
+        ),
+      );
+    
+  }
+
   Future<void> _handleRefresh() async {
     final user = _auth.currentUser;
     if (user == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('User not authenticated. Cannot refresh.')),
+          SnackBar(
+            content: Text('User not authenticated. Cannot refresh.'),
+            backgroundColor: Colors.red.shade400,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
       }
       return;
@@ -1200,16 +1504,32 @@ class DeviceInfoScreenState extends State<DeviceInfoScreen> {
       _listenToPeriodicUsageData();
 
       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text('$_currentDeviceName usage data refreshed!')),
-         );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('$_currentDeviceName usage data refreshed!'),
+              ],
+            ),
+            backgroundColor: Colors.green.shade400,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
       }
     } catch (e, s) {
       print("DeviceInfoScreen: Error during manual refresh: $e");
       print("DeviceInfoScreen: Stacktrace: $s");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error refreshing data: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error refreshing data: $e'),
+            backgroundColor: Colors.red.shade400,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
       }
     } finally {

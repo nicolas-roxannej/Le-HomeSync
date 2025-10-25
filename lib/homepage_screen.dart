@@ -24,7 +24,7 @@ class HomepageScreen extends StatefulWidget {
   _HomeScreenState createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomepageScreen> {
+class _HomeScreenState extends State<HomepageScreen> with SingleTickerProviderStateMixin {
   String _selectedPeriod = 'Daily';
   Weather? _currentWeather;
   int _selectedIndex = 0;
@@ -41,6 +41,8 @@ class _HomeScreenState extends State<HomepageScreen> {
   final UsageService _usageService = UsageService();
   
   Timer? _refreshTimer;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
 
   Future<String> getCurrentUsername() async {
     try {
@@ -66,11 +68,20 @@ class _HomeScreenState extends State<HomepageScreen> {
   @override
   void initState() {
     super.initState();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    );
+    _fadeController.forward();
+    
     _fetchWeather();
     _listenToAppliances();
     _fetchAccurateTotalUsage();
     
-    // periodic refresh every 5 MINUTES (300 seconds)
     _refreshTimer = Timer.periodic(Duration(minutes: 5), (timer) {
       if (mounted) {
         _fetchAccurateTotalUsage();
@@ -82,6 +93,7 @@ class _HomeScreenState extends State<HomepageScreen> {
   void dispose() {
     _appliancesSubscription?.cancel();
     _refreshTimer?.cancel();
+    _fadeController.dispose();
     super.dispose();
   }
 
@@ -191,17 +203,16 @@ class _HomeScreenState extends State<HomepageScreen> {
           break;
       }
 
-      //current session usage for devices that are ON
       Map<String, double> currentSessionData = await _calculateCurrentSessionUsage(userId, applianceIds, now);
       totalKwh += currentSessionData['kwh'] ?? 0.0;
       double sessionCost = currentSessionData['cost'] ?? 0.0;
-      // user's kWh rate
+      
       DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
       double kwhrRate = DEFAULT_KWHR_RATE;
       if (userDoc.exists && userDoc.data() != null) {
         kwhrRate = ((userDoc.data() as Map<String, dynamic>)['kwhr'] as num?)?.toDouble() ?? DEFAULT_KWHR_RATE;
       }
-      // Calculate total cost (stored kWh * rate + current session cost)
+      
       double storedCost = (totalKwh - (currentSessionData['kwh'] ?? 0.0)) * kwhrRate;
       double totalCost = storedCost + sessionCost;
 
@@ -332,7 +343,6 @@ class _HomeScreenState extends State<HomepageScreen> {
     Map<String, double> result = {'kwh': 0.0, 'cost': 0.0};
     DateTime now = DateTime.now();
     
-    // Get user's kWh rate
     DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
     double kwhrRate = DEFAULT_KWHR_RATE;
     if (userDoc.exists && userDoc.data() != null) {
@@ -402,211 +412,362 @@ class _HomeScreenState extends State<HomepageScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
     return Scaffold(
-      backgroundColor: const Color(0xFFE9E7E6),
+      backgroundColor: const Color(0xFFF5F5F7),
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
+        child: FadeTransition(
+          opacity: _fadeAnimation,
           child: Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GestureDetector(
-                    onTap: () => _showFlyout(context),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Transform.translate(
-                          offset: Offset(0, 20),
-                          child: CircleAvatar(
-                            backgroundColor: Colors.grey,
-                            radius: 25,
-                            child: Icon(Icons.home, color: Colors.black, size: 35),
-                          ),
-                        ),
-                        SizedBox(width: 10),
-                        Transform.translate(
-                          offset: Offset(0, 20),
-                          child: SizedBox(
-                            width: 110,
-                            child: FutureBuilder<String>(
-                              future: getCurrentUsername(),
-                              builder: (context, snapshot) {
-                                return Text(
-                                  snapshot.data ?? " ",
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
+              // Enhanced Header with Gradient
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                       Color(0xFFD0DDD0),
+                      Color(0xFFF8F8F8),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow( // header gradient
+                      color: Colors.black.withOpacity(0.09),
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // User Profile Section
+                          GestureDetector(
+                            onTap: () => _showFlyout(context),
+                            child: Row(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [Colors.black, Colors.black],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 4),
+                                      ),
+                                    ],
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                );
-                              },
+                                  child: CircleAvatar(
+                                    backgroundColor: Colors.transparent,
+                                    radius: 28,
+                                    child: Icon(Icons.home_rounded, color: Colors.white, size: 30),
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Welcome back',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    SizedBox(
+                                      width: 110,
+                                      child: FutureBuilder<String>(
+                                        future: getCurrentUsername(),
+                                        builder: (context, snapshot) {
+                                          return Text(
+                                            snapshot.data ?? " ",
+                                            style: GoogleFonts.inter(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF1A1A1A),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Transform.translate(
-                    offset: Offset(0, 20),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 32, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.cloud_circle_sharp, size: 35, color: Colors.lightBlue),
-                              SizedBox(width: 4),
-                              Transform.translate(
-                                offset: Offset(0, -5),
-                                child: _currentWeather == null
-                                    ? (_apiKey == 'YOUR_API_KEY'
-                                        ? Text('Set API Key', style: GoogleFonts.inter(fontSize: 12))
-                                        : Text('Loading...', style: GoogleFonts.inter(fontSize: 12)))
-                                    : Text(
-                                        '${_currentWeather?.temperature?.celsius?.toStringAsFixed(0) ?? '--'}°C',
-                                        style: GoogleFonts.inter(fontSize: 16),
+                          // Weather Widget
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.06),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.wb_sunny_rounded, size: 24, color: Color(0xFFFFB84D)),
+                                SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _currentWeather == null
+                                        ? Text('--°C', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600))
+                                        : Text(
+                                            '${_currentWeather?.temperature?.celsius?.toStringAsFixed(0) ?? '--'}°C',
+                                            style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+                                          ),
+                                    Text(
+                                      _currentWeather?.weatherDescription ?? 'Loading...',
+                                      style: GoogleFonts.inter(
+                                        color: Colors.grey[600],
+                                        fontSize: 10,
                                       ),
-                                      
-                              ),
-                            ],
-                          ),
-                          Transform.translate(
-                            offset: Offset(40, -15),
-                            child: Text(
-                              _currentWeather?.weatherDescription ?? (_apiKey == 'YOUR_API_KEY' ? 'Weather' : 'Fetching weather...'),
-                              style: GoogleFonts.inter(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
+                      SizedBox(height: 20),
+                      // Navigation Tabs
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Color(0xFFF0F0F2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        padding: EdgeInsets.all(4),
+                        child: Row(
+                          children: [
+                            _buildModernNavButton('Electricity', _selectedIndex == 0, 0),
+                            _buildModernNavButton('Appliance', _selectedIndex == 1, 1),
+                            _buildModernNavButton('Rooms', _selectedIndex == 2, 2),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-
-              SizedBox(height: 20),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildNavButton('Electricity', _selectedIndex == 0, 0),
-                  _buildNavButton('Appliance', _selectedIndex == 1, 1),
-                  _buildNavButton('Rooms', _selectedIndex == 2, 2),
-                ],
-              ),
-
-              SizedBox(
-                width: double.infinity,
-                child: Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Colors.black38,
                 ),
               ),
 
+              // Main Content
               Expanded(
                 child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.only(top: 10, bottom: 16),
-                        child: Row(
+                  physics: BouncingScrollPhysics(),
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Usage Header
+                        Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Row(
                               children: [
-                                Text('Usage',
-                                    style: TextStyle(
-                                        fontSize: 20, fontWeight: FontWeight.bold)),
-                                SizedBox(width: 8),
+                                Text(
+                                  'Usage Overview',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1A1A1A),
+                                  ),
+                                ),
+                                SizedBox(width: 10),
                                 _isRefreshing
-                                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                    ? SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                        ),
+                                      )
                                     : GestureDetector(
                                         onTap: _handleRefresh,
-                                        child: Icon(Icons.refresh, color: Colors.black, size: 20),
+                                        child: Container(
+                                          padding: EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(0.1),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.refresh_rounded,
+                                            color:Colors.black,
+                                            size: 18,
+                                          ),
+                                        ),
                                       ),
                               ],
                             ),
                             Row(
                               children: [
-                                GestureDetector(
-                                  onTap: () => _showPeriodPicker(),
-                                  child: Container(
-                                    padding: EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[300],
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Icon(
-                                      Icons.calendar_month,
-                                      size: 20,
-                                      color: Colors.black,
-                                    ),
-                                  ),
+                                _buildIconButton(
+                                  Icons.calendar_today_rounded,
+                                  () => _showPeriodPicker(),
                                 ),
                                 SizedBox(width: 8),
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.pushNamed(context, '/history');
-                                  },
-                                  child: Container(
-                                    padding: EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[300],
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Icon(
-                                      Icons.history,
-                                      size: 20,
-                                      color: Colors.black,
-                                    ),
-                                  ),
+                                _buildIconButton(
+                                  Icons.history_rounded,
+                                  () => Navigator.pushNamed(context, '/history'),
                                 ),
                               ],
                             ),
                           ],
                         ),
-                      ),
-                      Transform.translate(
-                        offset: Offset(0, -10),
-                        child: Container(
-                          height: 300,
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color.fromARGB(118, 255, 255, 255),
-                            borderRadius: BorderRadius.all(Radius.circular(8.0)),
-                          ),
-                          child: ElectricityUsageChart(selectedPeriod: _selectedPeriod),
-                        ),
-                      ),
-                      _buildUsageStat(
-                        'Total Electricity Usage',
-                        _isLoadingUsage ? 'Calculating...' : '${_totalUsageKwh.toStringAsFixed(2)} kWh',
-                        Icons.electric_bolt,
-                      ),
-                      _buildUsageStat(
-                        'Total Estimated Cost',
-                        _isLoadingUsage ? 'Calculating...' : '₱${_totalCost.toStringAsFixed(2)}',
-                        Icons.attach_money,
-                      ),
+                        SizedBox(height: 20),
 
-                      _buildDevicesList(),
-                    ],
+                        // Chart Container
+                        Container(
+                          height: 280,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.06),
+                                blurRadius: 20,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: ElectricityUsageChart(selectedPeriod: _selectedPeriod),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 20),
+
+                        // Stats Cards
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                'Total Usage',
+                                _isLoadingUsage ? '...' : '${_totalUsageKwh.toStringAsFixed(2)}',
+                                'kWh',
+                                Icons.bolt_rounded,
+                                Color(0xFFFFB84D),
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: _buildStatCard(
+                                'Estimated Cost',
+                                _isLoadingUsage ? '...' : '${_totalCost.toStringAsFixed(2)}',
+                                '₱',
+                                Icons.payments_rounded,
+                                Color(0xFF4CAF50),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 24),
+
+                        // Appliances Section
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Your Appliances',
+                              style: GoogleFonts.inter(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1A1A1A),
+                              ),
+                            ),
+                            Text(
+                              '${_appliances.length} devices',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16),
+
+                        // Appliances List
+                        _appliances.isEmpty
+                            ? Container(
+                                padding: EdgeInsets.all(40),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Center(
+                                  child: Column(
+                                    children: [
+                                      Icon(Icons.devices_other_rounded, size: 48, color: Colors.grey[400]),
+                                      SizedBox(height: 12),
+                                      Text(
+                                        'No appliances found',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.grey[600],
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.09),
+                                      blurRadius: 16,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: ListView.separated(
+                                  shrinkWrap: true,
+                                  physics: NeverScrollableScrollPhysics(),
+                                  itemCount: _appliances.length,
+                                  separatorBuilder: (context, index) => Divider(
+                                    height: 1,
+                                    indent: 70,
+                                    endIndent: 20,
+                                    color: Colors.grey[200],
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    final applianceDoc = _appliances[index];
+                                    final applianceData = applianceDoc.data();
+                                    final String applianceId = applianceDoc.id;
+                                    final String applianceName = applianceData['applianceName'] as String? ?? 'Unknown Device';
+                                    final int iconCodePoint = (applianceData['icon'] is int) ? (applianceData['icon'] as int) : Icons.devices.codePoint;
+                                    final IconData icon = _getIconFromCodePoint(iconCodePoint);
+
+                                    return _buildModernDeviceItem(applianceId, applianceName, icon);
+                                  },
+                                ),
+                              ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -617,11 +778,219 @@ class _HomeScreenState extends State<HomepageScreen> {
     );
   }
 
-    void _showFlyout(BuildContext context) {
+  Widget _buildModernNavButton(String title, bool isSelected, int index) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedIndex = index;
+          });
+
+          switch (index) {
+            case 0:
+              break;
+            case 1:
+              Navigator.pushNamed(context, '/devices');
+              break;
+            case 2:
+              Navigator.pushNamed(context, '/rooms');
+              break;
+          }
+        },
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: 200),
+          padding: EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              title,
+              style: GoogleFonts.inter(
+                color: isSelected ? Colors.black : Colors.grey[600],
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIconButton(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(
+          icon,
+          size: 20,
+          color: Colors.black,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, String unit, IconData icon, Color color) {
+    return Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withOpacity(0.1),
+            color.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          SizedBox(height: 12),
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (unit == '₱')
+                Text(
+                  unit,
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+              Flexible(
+                child: Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (unit != '₱')
+                Text(
+                  ' $unit',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernDeviceItem(String id, String name, IconData icon) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DeviceInfoScreen(
+              applianceId: id,
+              initialDeviceName: name,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.grey.withOpacity(0.4), Colors.grey.withOpacity(0.4)],
+                ),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, size: 28, color: Colors.black),
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.grey[400],
+              size: 24,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFlyout(BuildContext context) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
       barrierLabel: "Dismiss",
+      barrierColor: Colors.black.withOpacity(0.5),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
         return Align(
@@ -630,89 +999,126 @@ class _HomeScreenState extends State<HomepageScreen> {
             position: Tween<Offset>(
               begin: const Offset(-1, 0),
               end: Offset.zero,
-            ).animate(animation),
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
             child: Material(
-              color: const Color.fromARGB(255, 225, 225, 225),
-              elevation: 8,
+              color: Color(0xFFE9E7E6),
+              elevation: 16,
               child: Container(
-                width: MediaQuery.of(context).size.width * 0.7,
+                width: MediaQuery.of(context).size.width * 0.75,
                 height: MediaQuery.of(context).size.height,
-                padding: const EdgeInsets.all(16.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 40),
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Colors.grey,
-                      child: Icon(Icons.home, size: 50, color: Colors.black),
-                    ),
-                    const SizedBox(height: 16),
-                    FutureBuilder<String>(
-                      future: getCurrentUsername(),
-                      builder: (context, snapshot) {
-                        return Text(
-                          snapshot.data ?? "Loading...",
-                          style: GoogleFonts.mPlusRounded1c(
-                            fontSize: 25,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black
-                          ),
-                        );
-                      },
-                    ),
-                    const Divider(height: 32, thickness: 1),
-                    ListTile(
-                      leading: const Icon(Icons.person, size: 30, color: Colors.black),
-                     title: Text("Profile", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/profile');
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.notifications, size: 30, color: Colors.black),
-                      title: const Text("Notifications", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/notification');
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.info_rounded, size: 30, color: Colors.black),
-                      title: const Text("About", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/about');
-                      },
-                    ),
-
-                    ListTile(
-                      leading: const Icon(Icons.help_rounded, size: 30, color: Colors.black),
-                      title: const Text("Help?", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/help');
-                      },
-                    ),
-                   
-                    const Spacer(),
-                    ListTile(
-                      leading: const Icon(Icons.logout, color: Colors.red),
-                      title: const Text(
-                        "Log Out",
-                        style: TextStyle(color: Colors.red),
+                    Container(
+                      padding: const EdgeInsets.all(30.0),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFE9EFEC), Colors.white],
+                        ),
                       ),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        await _auth.signOut();
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                            builder: (context) => WelcomeScreen(),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 20),
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.black, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Colors.black,
+                              child: Icon(Icons.home_rounded, size: 45, color: Colors.white),
+                            ),
                           ),
-                          (Route<dynamic> route) => false,
-                        );
-                      },
+                          const SizedBox(height: 16),
+                          FutureBuilder<String>(
+                            future: getCurrentUsername(),
+                            builder: (context, snapshot) {
+                              return Text(
+                                snapshot.data ?? "Loading...",
+                                style: GoogleFonts.inter(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        children: [
+                          _buildMenuTile(
+                            Icons.person_rounded,
+                            "Profile",
+                            () {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/profile');
+                            },
+                          ),
+                          _buildMenuTile(
+                            Icons.notifications_rounded,
+                            "Notifications",
+                            () {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/notification');
+                            },
+                          ),
+                          _buildMenuTile(
+                            Icons.info_rounded,
+                            "About",
+                            () {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/about');
+                            },
+                          ),
+                          _buildMenuTile(
+                            Icons.help_rounded,
+                            "Help",
+                            () {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/help');
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: Colors.grey[400]!, width: 1),
+                        ),
+                      ),
+                      child: _buildMenuTile(
+                        Icons.logout_rounded,
+                        "Log Out",
+                        () async {
+                          Navigator.pop(context);
+                          await _auth.signOut();
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (context) => WelcomeScreen(),
+                            ),
+                            (Route<dynamic> route) => false,
+                          );
+                        },
+                        isDestructive: true,
+                      ),
                     ),
                   ],
                 ),
@@ -724,193 +1130,117 @@ class _HomeScreenState extends State<HomepageScreen> {
     );
   }
 
-  Widget _buildNavButton(String title, bool isSelected, int index) {
-    return Column(
-      children: [
-        TextButton(
-          onPressed: () {
-            setState(() {
-              _selectedIndex = index;
-            });
-
-            switch (index) {
-              case 0:
-                break;
-              case 1:
-                Navigator.pushNamed(context, '/devices');
-                break;
-              case 2:
-                Navigator.pushNamed(context, '/rooms');
-                break;
-            }
-          },
-          child: Text(
-            title,
-            style: GoogleFonts.inter(
-              color: isSelected ? Colors.black : Colors.grey[400],
-              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-              fontSize: 17,
-            ),
-          ),
+  Widget _buildMenuTile(IconData icon, String title, VoidCallback onTap, {bool isDestructive = false}) {
+    return ListTile(
+      contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      leading: Container(
+        padding: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isDestructive 
+              ? Colors.red.withOpacity(0.1) 
+              : Colors.black.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
         ),
-        if (isSelected)
-          Transform.translate(
-            offset: Offset(-0, -10),
-            child: Container(
-              height: 2,
-              width: 70,
-              color: Colors.brown,
-              margin: EdgeInsets.only(top: 1),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildUsageStat(String title, String value, IconData icon) {
-    return Transform.translate(
-      offset: Offset(-0, 10),
-      child: Row(
-        children: [
-          Icon(icon),
-          SizedBox(width: 5, height: 40),
-          Text(title, style: GoogleFonts.judson(color: Colors.black, fontSize: 16)),
-          Spacer(),
-          Text(value, style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 17)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDevicesList() {
-    return Transform.translate(
-      offset: Offset(-0, 15),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('Appliance',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          ),
-          _appliances.isEmpty
-              ? Center(child: Text("No appliances found."))
-              : ListView.builder(
-                  shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
-                  itemCount: _appliances.length,
-                  itemBuilder: (context, index) {
-                    final applianceDoc = _appliances[index];
-                    final applianceData = applianceDoc.data();
-                    final String applianceId = applianceDoc.id;
-                    final String applianceName = applianceData['applianceName'] as String? ?? 'Unknown Device';
-                    final int iconCodePoint = (applianceData['icon'] is int) ? (applianceData['icon'] as int) : Icons.devices.codePoint;
-                    final IconData icon = _getIconFromCodePoint(iconCodePoint);
-
-                    return Column(
-                      children: [
-                        _buildDeviceItem(applianceId, applianceName, '', icon),
-                        if (index < _appliances.length - 1)
-                          Divider(
-                            color: Colors.grey[400],
-                            thickness: 0.5,
-                            indent: 50,
-                            endIndent: 16,
-                          ),
-                      ],
-                    );
-                  },
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDeviceItem(String id, String name, String usage, IconData icon) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => DeviceInfoScreen(
-                    applianceId: id,
-                    initialDeviceName: name,
-                  )),
-        );
-      },
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-        child: Row(
-          children: [
-            Icon(icon, size: 35),
-            SizedBox(width: 12),
-            Text(name, style: GoogleFonts.judson(color: Colors.black, fontSize: 18)),
-            Spacer(),
-            Text(usage, style: GoogleFonts.jaldi(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20)),
-            SizedBox(width: 8),
-          ],
+        child: Icon(
+          icon,
+          size: 24,
+          color: isDestructive ? Colors.red : Colors.black,
         ),
       ),
+      title: Text(
+        title,
+        style: GoogleFonts.inter(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: isDestructive ? Colors.red : Color(0xFF1A1A1A),
+        ),
+      ),
+      onTap: onTap,
     );
   }
 
   void _showPeriodPicker() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Text('Select Period',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            )),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Container(
+          padding: EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Period',
+                style: GoogleFonts.inter(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              SizedBox(height: 20),
+              _buildPeriodOption('Daily', Icons.today_rounded),
+              _buildPeriodOption('Weekly', Icons.view_week_rounded),
+              _buildPeriodOption('Monthly', Icons.calendar_month_rounded),
+              _buildPeriodOption('Yearly', Icons.calendar_today_rounded),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPeriodOption(String period, IconData icon) {
+    bool isSelected = _selectedPeriod == period;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedPeriod = period;
+        });
+        _fetchAccurateTotalUsage();
+        Navigator.pop(context);
+      },
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.grey.withOpacity(0.5) : Colors.grey[200],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? Colors.black : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Row(
           children: [
-            ListTile(
-              tileColor: Colors.white,
-              title: Text('Daily'),
-              onTap: () {
-                setState(() {
-                  _selectedPeriod = 'Daily';
-                });
-                _fetchAccurateTotalUsage();
-                Navigator.pop(context);
-              },
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.black : Colors.black,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: isSelected ? Colors.white : Colors.white,
+                size: 20,
+              ),
             ),
-            ListTile(
-              tileColor: Colors.white,
-              title: Text('Weekly'),
-              onTap: () {
-                setState(() {
-                  _selectedPeriod = 'Weekly';
-                });
-                _fetchAccurateTotalUsage();
-                Navigator.pop(context);
-              },
+            SizedBox(width: 16),
+            Text(
+              period,
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? Color(0xFF1A1A1A) : Color(0xFF1A1A1A),
+              ),
             ),
-            ListTile(
-              tileColor: Colors.white,
-              title: Text('Monthly'),
-              onTap: () {
-                setState(() {
-                  _selectedPeriod = 'Monthly';
-                });
-                _fetchAccurateTotalUsage();
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              tileColor: Colors.white,
-              title: Text('Yearly'),
-              onTap: () {
-                setState(() {
-                  _selectedPeriod = 'Yearly';
-                });
-                _fetchAccurateTotalUsage();
-                Navigator.pop(context);
-              },
-            ),
+            Spacer(),
+            if (isSelected)
+              Icon(Icons.check_circle_rounded, color: Colors.black, size: 24),
           ],
         ),
       ),
@@ -921,7 +1251,12 @@ class _HomeScreenState extends State<HomepageScreen> {
     final user = _auth.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('User not authenticated. Cannot refresh.')),
+        SnackBar(
+          content: Text('User not authenticated. Cannot refresh.'),
+          backgroundColor: Colors.red[400],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
       );
       return;
     }
@@ -935,19 +1270,35 @@ class _HomeScreenState extends State<HomepageScreen> {
       print("Homepage: Fast refresh initiated by user ${user.uid}.");
 
       await _fetchAccurateTotalUsage();
-
       _fetchWeather();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Usage data refreshed!'), duration: Duration(seconds: 1)),
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.white),
+              SizedBox(width: 12),
+              Text('Usage data refreshed!'),
+            ],
+          ),
+          backgroundColor: Color(0xFF4CAF50),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: Duration(seconds: 2),
+        ),
       );
     } catch (e, s) {
       print("Homepage: Error during fast refresh: $e");
       print("Homepage: Stacktrace: $s");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error refreshing data: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error refreshing data: $e'),
+            backgroundColor: Colors.red[400],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
       }
     } finally {

@@ -79,7 +79,6 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
     socketError = null;
     daysError = null;
     
-    // Fetch device data and rooms only when user is authenticated
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser != null) {
       _fetchDeviceData();
@@ -157,11 +156,6 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 5),
               behavior: SnackBarBehavior.floating,
-              margin: EdgeInsets.only(
-                bottom: MediaQuery.of(context).size.height - 150,
-                left: 10,
-                right: 10,
-              ),
             )
           );
           Navigator.of(context).pop();
@@ -179,11 +173,6 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
             behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height - 150,
-              left: 10,
-              right: 10,
-            ),
           )
         );
         Navigator.of(context).pop();
@@ -295,582 +284,741 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFFE9E7E6),
-        body: Center(child: CircularProgressIndicator()),
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Colors.black,
+          ),
+        ),
       );
     }
     
     return Scaffold(
-      backgroundColor: const Color(0xFFE9E7E6),
-      appBar: null,
+      backgroundColor: const Color(0xFFF5F5F7),
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: Transform.translate(
-                      offset: Offset(0.0, 20),
+          child: Column(
+            children: [
+              // Custom App Bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFFF5F5F7),
+                      Color(0xFFF5F5F7),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.0),
+                      blurRadius: 1,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: IconButton(
-                        icon: Icon(Icons.arrow_back, size: 50, color: Colors.black),
+                        icon: Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ),
-                  ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'Edit Appliance',
+                        style: GoogleFonts.poppins(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-                  Transform.translate(
-                    offset: Offset(-50, -30),
-                    child: Text(
-                      isEditing ? ' Edit device' : ' Add device',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.jaldi(
-                        textStyle: TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
-      
-                  SizedBox(height: 5),
-                  Transform.translate(
-                    offset: Offset(0,-15),
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.grey[400],
-                      ),
-                      child: IconButton(
-                        color: Colors.black,
-                        iconSize: 60,
-                        icon: Icon(selectedIcon),
-                        onPressed: () => _pickIcon(),
-                      ),
-                    ),
-                  ),
-                  
-                  Row(
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: BouncingScrollPhysics(),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.only(bottom: 5, top: 10),
-                          child: TextFormField(
-                            controller: applianceNameController,
-                            readOnly: true,
-                            enabled: false,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Colors.grey[100],
-                              prefixIcon: Icon(Icons.device_hub, size: 30, color: Colors.black),
-                              labelText: "Appliance Name",
-                              labelStyle: GoogleFonts.jaldi(
-                                textStyle: TextStyle(fontSize: 20),
-                                color: Colors.black,
+                      // Icon Selector Card
+                      Center(
+                        child: GestureDetector(
+                          onTap: () => _pickIcon(),
+                          child: Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.black,
+                                  Colors.black,
+                                ],
                               ),
-                              border: OutlineInputBorder(),
-                              disabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(color: Colors.black),
-                              ),
-                              errorText: applianceNameError,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 20,
+                                  offset: Offset(0, 8),
+                                ),
+                              ],
                             ),
-                            style: GoogleFonts.jaldi(
-                              textStyle: TextStyle(
-                                fontSize: 18,
-                                color: Colors.black,
-                              ),
+                            child: Icon(
+                              selectedIcon,
+                              size: 50,
+                              color: Colors.white,
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return "Appliance Name is required";
-                              }
-                              return null;
-                            },
                           ),
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.edit, size: 30, color: Colors.black),
-                        onPressed: _addApplianceDialog,
-                      )
-                    ],
-                  ),
-
-                  _buildRequiredTextField(
-                    wattageController,
-                    "Wattage",
-                    Icons.energy_savings_leaf,
-                    keyboardType: TextInputType.number,
-                    errorText: wattageError
-                  ),
-                  SizedBox(height: 10),
-                  
-                  _buildRoomDropdown(),
-                  
-                  SizedBox(height: 15),
-                  
-                  DropdownButtonFormField<String>(
-                    key: ValueKey('device_type_dropdown'),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      labelText: 'Device Type',
-                      labelStyle: GoogleFonts.jaldi(
-                        textStyle: TextStyle(fontSize: 20),
-                        color: Colors.black,
+                      SizedBox(height: 8),
+                      Center(
+                        child: Text(
+                          'Tap to change icon',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey.withOpacity(0.6),
+                          ),
+                        ),
                       ),
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 17),
-                    ),
-                    dropdownColor: Colors.grey[200], 
-                    style: GoogleFonts.jaldi(
-                      textStyle: TextStyle(fontSize: 18, color: Colors.black87),
-                    ),
-                    value: ['Light', 'Socket'].contains(deviceType) ? deviceType : 'Light',
-                    items: ['Light', 'Socket'].map((String type) {
-                      return DropdownMenuItem<String>(
-                        value: type,
-                        child: Text(type),
-                      );
-                    }).toList(),
-                    onChanged: (String? value) {
-                      setState(() {
-                        deviceType = value ?? 'Light';
-                      });
-                    },
-                  ),
-                  
-                  SizedBox(height: 15),
-                  DropdownButtonFormField<String>(
-                    key: ValueKey('relay_dropdown_${_availableRelays.length}'),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      prefixIcon: Icon(Icons.electrical_services, size: 30, color: Colors.black),
-                      labelText: "Relay",
-                      errorText: socketError,
-                      border: OutlineInputBorder(),
-                    ),
-                    value: (_availableRelays.contains(selectedRelay)) ? selectedRelay : null,
-                    items: _availableRelays.map((String relay) {
-                      return DropdownMenuItem<String>(
-                        value: relay,
-                        child: Text(relay),
-                      );
-                    }).toList(),
-                    onChanged: (String? value) {
-                      setState(() {
-                        selectedRelay = value;
-                        socketError = null;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return "Relay is required";
-                      }
-                      return null;
-                    },
-                  ),
+                      SizedBox(height: 30),
 
-                  SizedBox(height: 10),
-                  
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white, 
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: socketError != null ? Colors.red : Colors.black
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
+                      // Appliance Name
+                      _buildSectionLabel('Appliance Name'),
+                      _buildModernCard(
+                        child: Row(
                           children: [
                             Expanded(
-                              child: ListTile(
-                                leading: Icon(Icons.access_time, color: Colors.black),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 25, vertical: 5),
-                                title: Text(
-                                  startTime != null
-                                      ? 'Start: \n${startTime!.format(context)}'
-                                      : 'Set Start Time',
+                              child: InkWell(
+                                onTap: _addApplianceDialog,
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Icon(Icons.device_hub, size: 24, color: Colors.black),
+                                      ),
+                                      SizedBox(width: 15),
+                                      Expanded(
+                                        child: Text(
+                                          applianceNameController.text.isEmpty 
+                                            ? "Tap to edit appliance" 
+                                            : applianceNameController.text,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 15,
+                                            color: applianceNameController.text.isEmpty 
+                                              ? Colors.black.withOpacity(0.4)
+                                              : Colors.black,
+                                            fontWeight: applianceNameController.text.isEmpty 
+                                              ? FontWeight.normal
+                                              : FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      Icon(Icons.edit, size: 20, color: Colors.black),
+                                    ],
+                                  ),
                                 ),
-                                onTap: () => _pickStartTime(),
-                              ),
-                            ),
-                            Expanded(
-                              child: ListTile(
-                                leading: Icon(Icons.access_time, color: Colors.black),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 25, vertical: 5),
-                                title: Text(
-                                  endTime != null
-                                      ? 'End: \n${endTime!.format(context)}'
-                                      : 'Set End Time',
-                                ),
-                                onTap: () => _pickEndTime(),
                               ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-
-                  Transform.translate( 
-                    offset: Offset(-90, 13),
-                    child: Text(
-                      ' Automatic alarm set',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                        textStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                        color: Colors.black,
+                        error: applianceNameError,
                       ),
-                    ),
-                  ),
-                  
-                  Transform.translate( 
-                    offset: Offset(-0, 10),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          for (final preset in presetTimes.keys)
-                            ElevatedButton(
-                              onPressed: () => _applyPresetTime(preset),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                foregroundColor: Colors.white,
-                                side: BorderSide(color: Colors.grey, width: 1),
-                              ),
-                              child: Text(preset),
+                      SizedBox(height: 20),
+
+                      // Wattage
+                      _buildSectionLabel('Power Consumption'),
+                      _buildModernTextField(
+                        controller: wattageController,
+                        hint: "Enter wattage (W)",
+                        icon: Icons.bolt,
+                        keyboardType: TextInputType.number,
+                        errorText: wattageError,
+                      ),
+                      SizedBox(height: 20),
+
+                      // Room
+                      _buildSectionLabel('Room'),
+                      _buildModernDropdown(
+                        value: selectedRoom,
+                        items: _roomNames.isEmpty ? ['No Rooms'] : _roomNames,
+                        hint: 'Select Room',
+                        icon: selectedRoom != null 
+                          ? (roomIcons[selectedRoom] ?? Icons.home)
+                          : Icons.home,
+                        onChanged: (value) {
+                          if (value == 'No Rooms') return;
+                          setState(() {
+                            selectedRoom = value;
+                            roomController.text = value ?? '';
+                            roomError = null;
+                          });
+                        },
+                        errorText: roomError,
+                        trailing: IconButton(
+                          icon: Container(
+                            padding: EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              borderRadius: BorderRadius.circular(8),
                             ),
+                            child: Icon(Icons.add, size: 20, color: Colors.white),
+                          ),
+                          onPressed: _addRoomDialog,
+                        ),
+                      ),
+                      SizedBox(height: 20),
+
+                      // Device Type
+                      _buildSectionLabel('Device Type'),
+                      _buildModernDropdown(
+                        value: deviceType,
+                        items: ['Light', 'Socket'],
+                        hint: 'Select Type',
+                        icon: Icons.category,
+                        onChanged: (value) {
+                          setState(() {
+                            deviceType = value!;
+                          });
+                        },
+                      ),
+                      SizedBox(height: 20),
+
+                      // Relay
+                      _buildSectionLabel('Relay Connection'),
+                      _buildModernDropdown(
+                        value: selectedRelay,
+                        items: _availableRelays,
+                        hint: 'Select Relay',
+                        icon: Icons.electrical_services,
+                        onChanged: (value) {
+                          setState(() {
+                            selectedRelay = value;
+                            socketError = null;
+                          });
+                        },
+                        errorText: socketError,
+                      ),
+                      SizedBox(height: 30),
+
+                      // Schedule Section
+                      _buildSectionLabel('Schedule'),
+                      _buildModernCard(
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTimeSelector(
+                                    label: 'Start Time',
+                                    time: startTime,
+                                    onTap: _pickStartTime,
+                                  ),
+                                ),
+                                Container(
+                                  width: 1,
+                                  height: 40,
+                                  color: Colors.black.withOpacity(0.1),
+                                  margin: EdgeInsets.symmetric(horizontal: 12),
+                                ),
+                                Expanded(
+                                  child: _buildTimeSelector(
+                                    label: 'End Time',
+                                    time: endTime,
+                                    onTap: _pickEndTime,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 16),
+
+                      // Preset Times
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: BouncingScrollPhysics(),
+                        child: Row(
+                          children: presetTimes.keys.map((preset) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: _buildPresetButton(preset),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      SizedBox(height: 24),
+
+                      // Repeating Days
+                      _buildSectionLabel('Repeating Days'),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: BouncingScrollPhysics(),
+                        child: Row(
+                          children: weekdays.map((day) {
+                            final isSelected = selectedDays[day] ?? false;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: _buildDayChip(day, isSelected),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      SizedBox(height: 30),
+
+                      // Action Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildActionButton(
+                              label: 'Delete',
+                              onPressed: _deleteDevice,
+                              isDestructive: true,
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: _buildActionButton(
+                              label: 'Save Changes',
+                              onPressed: _validateAndSubmitDevice,
+                              isPrimary: true,
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                  ),
-                  
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              'Repeating Days',
-                              style: TextStyle(
-                                fontSize: 16, 
-                                fontWeight: FontWeight.bold
-                              ),
-                            ),
-                            if (daysError != null)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8.0),
-                              ),
-                          ],
-                        ),
-                        SizedBox(height: 8),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: weekdays.map((day) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                child: FilterChip(
-                                  label: Text(day),
-                                  labelStyle: TextStyle(
-                                    color: selectedDays[day] ?? false ? Colors.white : Colors.white,
-                                  ),
-                                  selected: selectedDays[day] ?? false,
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      selectedDays[day] = selected;
-                                      if (selected) {
-                                        daysError = null;
-                                      }
-                                    });
-                                  },
-                                  backgroundColor: Colors.black,
-                                  side: BorderSide(
-                                    color: daysError != null ? Colors.red : Colors.grey, 
-                                    width: 1
-                                  ),
-                                  selectedColor: Theme.of(context).colorScheme.secondary,
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  SizedBox(height: 10),
-                  
-                  Row(
-                    children: [
-                      if (isEditing)
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _deleteDevice,
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: Size(double.infinity, 60),
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(0),
-                                side: BorderSide(color: Colors.black, width: 1),
-                              ),
-                              elevation: 5,
-                              shadowColor: Colors.black.withOpacity(0.5),
-                            ),
-                            child: Text(
-                              'Delete Device',
-                              style: GoogleFonts.judson(
-                                fontSize: 19,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      SizedBox(width: isEditing ? 10 : 0),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _validateAndSubmitDevice,
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: Size(double.infinity, 60),
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(0),
-                              side: BorderSide(color: Colors.black, width: 1),
-                            ),
-                            elevation: 5,
-                            shadowColor: Colors.black.withOpacity(0.5),
-                          ),
-                          child: Text(
-                            isEditing ? 'Save Changes' : 'Add Device',
-                            style: GoogleFonts.judson(
-                              fontSize: isEditing ? 19 : 19,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                      ),
+                      SizedBox(height: 20),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildRoomDropdown() {
+  Widget _buildSectionLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Text(
+        label,
+        style: GoogleFonts.poppins(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: Colors.black.withOpacity(0.9),
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernCard({required Widget child, String? error}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () => _showRoomSelectionDialog(),
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 15, vertical: 17),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(
-                      color: roomError != null ? Colors.red : Colors.grey,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        selectedRoom != null ? (roomIcons[selectedRoom] ?? Icons.home) : Icons.home,
-                        size: 30,
-                        color: Colors.black
-                      ),
-                      SizedBox(width: 15),
-                      Expanded(
-                        child: Text(
-                          selectedRoom ?? 'Select a room',
-                          style: GoogleFonts.jaldi(
-                            textStyle: TextStyle(
-                              fontSize: 18, 
-                              color: selectedRoom != null ? Colors.black87 : Colors.grey
-                            ),
-                          ),
-                        ),
-                      ),
-                      Icon(Icons.arrow_drop_down, color: Colors.grey),
-                    ],
-                  ),
-                ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: error != null 
+                ? Colors.redAccent.withOpacity(0.5)
+                : Colors.black.withOpacity(0.8),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 10,
+                offset: Offset(0, 4),
               ),
-            ),
-            SizedBox(width: 8),
-            IconButton(
-              icon: Icon(Icons.add, size: 30, color: Colors.black),
-              onPressed: _addRoomDialog,
-            ),
-          ],
+            ],
+          ),
+          child: child,
         ),
-        if (roomError != null)
+        if (error != null)
           Padding(
-            padding: EdgeInsets.only(top: 5, left: 15),
+            padding: const EdgeInsets.only(left: 16, top: 8),
             child: Text(
-              roomError!,
-              style: TextStyle(color: Colors.red, fontSize: 12),
+              error,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.redAccent,
+              ),
             ),
           ),
       ],
     );
   }
 
-  void _showRoomSelectionDialog() {
-  final uniqueRoomNames = _roomNames
-    .where((name) => name.toString().trim().isNotEmpty)
-        .map((name) => name.toString().trim())
-        .toSet()
-        .toList();
-    
-    uniqueRoomNames.sort();
-    
-    if (uniqueRoomNames.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "No rooms available. Please add a room first.",
-            style: const TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(
-            bottom: MediaQuery.of(context).size.height - 150,
-            left: 10,
-            right: 10,
-          ),
-        )
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFFE9E7E6),
-          title: Text(
-            'Select Room',
-            style: GoogleFonts.jaldi(
-              fontSize: 25,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: uniqueRoomNames.length,
-              itemBuilder: (context, index) {
-                final roomName = uniqueRoomNames[index];
-                final isSelected = selectedRoom == roomName;
-                
-                return ListTile(
-                  leading: Icon(
-                    roomIcons[roomName] ?? Icons.home,
-                    color: isSelected ? Colors.blue : Colors.black,
-                  ),
-                  title: Text(
-                    roomName,
-                    style: GoogleFonts.jaldi(
-                      textStyle: TextStyle(
-                        fontSize: 18,
-                        color: isSelected ? Colors.blue : Colors.black,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                  trailing: isSelected ? Icon(Icons.check, color: Colors.blue) : null,
-                  onTap: () {
-                    setState(() {
-                      selectedRoom = roomName;
-                      roomController.text = roomName;
-                      roomError = null;
-                    });
-                    Navigator.of(context).pop();
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: ButtonStyle(
-                backgroundColor: WidgetStateProperty.all(Colors.black),
-                foregroundColor: WidgetStateProperty.all(Colors.white),
-              ),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.jaldi(
-                  textStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildRequiredTextField(
-    TextEditingController controller, 
-    String label, 
-    IconData icon, 
-    {TextInputType keyboardType = TextInputType.text, 
-    String? hint,
-    String? errorText}
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 5, top: 10),
-      child: TextFormField(
+  Widget _buildModernTextField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+    String? errorText,
+  }) {
+    return _buildModernCard(
+      error: errorText,
+      child: TextField(
         controller: controller,
         keyboardType: keyboardType,
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: Colors.white,
-          prefixIcon: Icon(icon, size: 30, color: Colors.black), 
-          labelText: label,  
-          labelStyle: GoogleFonts.jaldi(
-            textStyle: TextStyle(fontSize: 20),
-            color: Colors.grey,
-          ),
-          hintText: hint,
-          border: OutlineInputBorder(),
-          errorText: errorText,
+        style: GoogleFonts.poppins(
+          fontSize: 15,
+          color: Colors.black,
         ),
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return "$label is required";
-          }
-          return null;
-        },
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: GoogleFonts.poppins(
+            fontSize: 15,
+            color: Colors.grey.withOpacity(0.9),
+          ),
+          prefixIcon: Container(
+            margin: EdgeInsets.all(12),
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 24, color: Colors.black),
+          ),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        ),
       ),
     );
   }
- 
+
+  Widget _buildModernDropdown({
+    required String? value,
+    required List<String> items,
+    required String hint,
+    required IconData icon,
+    required Function(String?) onChanged,
+    String? errorText,
+    Widget? trailing,
+  }) {
+    return _buildModernCard(
+      error: errorText,
+      child: Row(
+        children: [
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: ButtonTheme(
+                alignedDropdown: true,
+                child: DropdownButton<String>(
+                  value: value,
+                  isExpanded: true,
+                  hint: Text(
+                    hint,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      color: Colors.grey.withOpacity(0.9),
+                    ),
+                  ),
+                  icon: Icon(Icons.keyboard_arrow_down, color: Colors.black),
+                  dropdownColor: Colors.white,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    color: Colors.black,
+                  ),
+                  items: items.map((item) {
+                    return DropdownMenuItem(
+                      value: item,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              item == value && value != null && roomIcons.containsKey(value)
+                                ? roomIcons[value]!
+                                : icon,
+                              size: 20,
+                              color: Colors.black,
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              item,
+                              style: GoogleFonts.poppins(fontSize: 15),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: onChanged,
+                  selectedItemBuilder: (BuildContext context) {
+                    return items.map((item) {
+                      return Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              item == value && value != null && roomIcons.containsKey(value)
+                                ? roomIcons[value]!
+                                : icon,
+                              size: 24,
+                              color: Colors.black,
+                            ),
+                          ),
+                          SizedBox(width: 15),
+                          Expanded(
+                            child: Text(
+                              item,
+                              style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList();
+                  },
+                ),
+              ),
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeSelector({
+    required String label,
+    required TimeOfDay? time,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.black.withOpacity(0.6),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.access_time, color: Colors.black, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  time != null ? time.format(context) : '--:--',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPresetButton(String preset) {
+    return InkWell(
+      onTap: () => _applyPresetTime(preset),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.black.withOpacity(0.2),
+              Colors.black.withOpacity(0.2),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.black.withOpacity(0.3),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              preset == 'Morning' ? Icons.wb_sunny : 
+              preset == 'Afternoon' ? Icons.wb_cloudy :
+              Icons.nights_stay,
+              color: Colors.black,
+              size: 18,
+            ),
+            SizedBox(width: 8),
+            Text(
+              preset,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.black,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDayChip(String day, bool isSelected) {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          selectedDays[day] = !isSelected;
+          if (!isSelected) {
+            daysError = null;
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: isSelected
+            ? LinearGradient(
+                colors: [Colors.black, Colors.black],
+              )
+            : null,
+          color: isSelected ? null : Colors.grey[400],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected 
+              ? Colors.black
+              : Colors.black.withOpacity(0.3),
+            width: 1.5,
+          ),
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: Offset(0, 4),
+            ),
+          ] : null,
+        ),
+        child: Text(
+          day,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: Colors.white,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required String label,
+    required VoidCallback onPressed,
+    bool isPrimary = false,
+    bool isDestructive = false,
+  }) {
+    return Container(
+      height: 56,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: isPrimary
+              ? LinearGradient(
+                  colors: [Colors.black, Colors.black],
+                )
+              : isDestructive
+                ? LinearGradient(
+                    colors: [Color(0xFFE53935), Color(0xFFC62828)],
+                  )
+                : null,
+            color: isPrimary || isDestructive ? null : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isPrimary 
+                ? Colors.transparent
+                : isDestructive
+                  ? Colors.transparent
+                  : Colors.white.withOpacity(0.2),
+              width: 1.5,
+            ),
+            boxShadow: [
+              if (isPrimary || isDestructive)
+                BoxShadow(
+                  color: (isPrimary ? Colors.black : Color(0xFFE53935)).withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: Offset(0, 6),
+                ),
+            ],
+          ),
+          child: Container(
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   static IconData roomIconSelected = Icons.home;
 
   void _addRoomDialog() {
@@ -879,74 +1027,105 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFFE9E7E6),
-        titleTextStyle: GoogleFonts.jaldi(
-          fontSize: 25,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
+        backgroundColor: Color(0xFFE9E7E6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Add Room',
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
         ),
-        title: Text('Add Room'),
         content: StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
             return SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(
-                    controller: roomInput,
-                    style: GoogleFonts.inter(
-                      textStyle: TextStyle(fontSize: 17),
-                      color: Colors.black,
-                    ),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(),
-                      hintText: "Room name",
-                      hintStyle: GoogleFonts.inter(
-                        color: Colors.grey,
-                        fontSize: 15,
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.black.withOpacity(0.3),
+                        width: 1.5,
                       ),
-                      prefixIcon: Icon(
-                        roomIconSelected,
+                    ),
+                    child: TextField(
+                      controller: roomInput,
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
                         color: Colors.black,
-                        size: 24,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: "Room name",
+                        hintStyle: GoogleFonts.poppins(
+                          color: Colors.grey,
+                          fontSize: 15,
+                        ),
+                        prefixIcon: Icon(
+                          roomIconSelected,
+                          color: Colors.black,
+                          size: 24,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
                     ),
                   ),
-                  SizedBox(height: 15),
+                  SizedBox(height: 20),
                   Text(
                     'Select Icon',
-                    style: GoogleFonts.jaldi(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 5),
+                  SizedBox(height: 12),
                   Container(
                     height: 200,
                     width: double.maxFinite,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.black.withOpacity(0.3),
+                        width: 1.5,
+                      ),
                     ),
                     child: GridView.count(
                       crossAxisCount: 4,
                       shrinkWrap: true,
+                      padding: EdgeInsets.all(8),
                       children: const [
                         Icons.living, Icons.bed, Icons.kitchen, Icons.dining,
-                        Icons.bathroom, Icons.meeting_room,Icons.garage, Icons.local_library, Icons.stairs,
+                        Icons.bathroom, Icons.meeting_room, Icons.garage, Icons.local_library, Icons.stairs,
                       ].map((icon) {
-                        return IconButton(
-                          icon: Icon(
-                            icon,
+                        final isSelected = roomIconSelected == icon;
+                        return Container(
+                          margin: EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            gradient: isSelected
+                              ? LinearGradient(
+                                  colors: [Colors.grey, Colors.grey],
+                                )
+                              : null,
+                            color: isSelected ? null : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          onPressed: () {
-                            setDialogState(() {
-                              roomIconSelected = icon;
-                            });
-                          },
+                          child: IconButton(
+                            icon: Icon(
+                              icon,
+                              color: Colors.black,
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                roomIconSelected = icon;
+                              });
+                            },
+                          ),
                         );
                       }).toList(),
                     ),
@@ -956,7 +1135,6 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
             );
           }
         ),
-
         actions: [
           TextButton(
             onPressed: () {
@@ -976,11 +1154,16 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
             style: ButtonStyle(
               backgroundColor: WidgetStateProperty.all(Colors.black),
               foregroundColor: WidgetStateProperty.all(Colors.white),
+              padding: WidgetStateProperty.all(EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
             child: Text(
               'Add',
-              style: GoogleFonts.jaldi(
-                textStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
             ),
@@ -1041,12 +1224,15 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
           builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
               backgroundColor: const Color(0xFFE9E7E6),
-              titleTextStyle: GoogleFonts.jaldi(
-                fontSize: 25,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text(
+                'Edit Smart Appliance',
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
               ),
-              title: Text('Edit Smart Appliance'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1062,28 +1248,27 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                             });
                           },
                           child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               border: Border.all(
                                 color: applianceTypeError != null 
-                                    ? const Color.fromARGB(255, 131, 24, 16) 
-                                    : Colors.grey,
+                                    ? Colors.redAccent.withOpacity(0.5)
+                                    : Colors.black.withOpacity(0.3),
+                                width: 1.5,
                               ),
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   selectedApplianceType ?? 'Appliance Type',
-                                  style: GoogleFonts.jaldi(
-                                    textStyle: TextStyle(
-                                      fontSize: 16,
-                                      color: selectedApplianceType != null 
-                                          ? Colors.black87 
-                                          : Colors.grey,
-                                    ),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 15,
+                                    color: selectedApplianceType != null 
+                                        ? Colors.black
+                                        : Colors.black.withOpacity(0.4),
                                   ),
                                 ),
                                 Icon(
@@ -1098,12 +1283,15 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                         ),
                         if (isApplianceDropdownOpen)
                           Container(
-                            margin: EdgeInsets.only(top: 4),
+                            margin: EdgeInsets.only(top: 8),
                             padding: EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(4),
+                              color: Colors.white,
+                              border: Border.all(
+                                color: Colors.black.withOpacity(0.3),
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             constraints: BoxConstraints(maxHeight: 250),
                             child: SingleChildScrollView(
@@ -1125,8 +1313,9 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                                         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                         child: Text(
                                           type,
-                                          style: GoogleFonts.jaldi(
-                                            textStyle: TextStyle(fontSize: 16, color: Colors.black87),
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 15,
+                                            color: Colors.black,
                                           ),
                                         ),
                                       ),
@@ -1142,8 +1331,9 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                                       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                       child: Text(
                                         'Others',
-                                        style: GoogleFonts.jaldi(
-                                          textStyle: TextStyle(fontSize: 16, color: Colors.black87),
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 15,
+                                          color: Colors.black,
                                         ),
                                       ),
                                     ),
@@ -1155,26 +1345,34 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                                         children: [
                                           Text(
                                             'Other: ',
-                                            style: GoogleFonts.jaldi(
+                                            style: GoogleFonts.poppins(
                                               fontSize: 14,
-                                              color: Colors.black87,
+                                              color: Colors.black,
                                             ),
                                           ),
                                           Expanded(
                                             child: TextField(
                                               controller: customApplianceInput,
                                               autofocus: true,
-                                              style: GoogleFonts.inter(
-                                                textStyle: TextStyle(fontSize: 14),
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 14,
                                                 color: Colors.black,
                                               ),
                                               decoration: InputDecoration(
                                                 hintText: "Type appliance type",
-                                                hintStyle: GoogleFonts.inter(
+                                                hintStyle: GoogleFonts.poppins(
                                                   color: Colors.grey,
                                                   fontSize: 12,
                                                 ),
-                                                border: UnderlineInputBorder(),
+                                                border: UnderlineInputBorder(
+                                                  borderSide: BorderSide(color: Colors.black),
+                                                ),
+                                                enabledBorder: UnderlineInputBorder(
+                                                  borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                                                ),
+                                                focusedBorder: UnderlineInputBorder(
+                                                  borderSide: BorderSide(color: Colors.black),
+                                                ),
                                                 isDense: true,
                                                 contentPadding: EdgeInsets.symmetric(vertical: 4),
                                               ),
@@ -1214,15 +1412,15 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                           ),
                         if (applianceTypeError != null)
                           Padding(
-                            padding: EdgeInsets.only(left: 12, top: 5),
+                            padding: EdgeInsets.only(left: 16, top: 8),
                             child: Text(
                               applianceTypeError!,
-                              style: TextStyle(color: const Color.fromARGB(255, 136, 27, 19), fontSize: 12),
+                              style: TextStyle(color: Colors.redAccent, fontSize: 12),
                             ),
                           ),
                       ],
                     ),
-                    SizedBox(height: 15),
+                    SizedBox(height: 16),
                     
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1235,28 +1433,27 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                             });
                           },
                           child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               border: Border.all(
                                 color: brandError != null 
-                                    ? const Color.fromARGB(255, 161, 34, 25) 
-                                    : Colors.grey,
+                                    ? Colors.redAccent.withOpacity(0.5)
+                                    : Colors.black.withOpacity(0.3),
+                                width: 1.5,
                               ),
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   selectedBrand ?? 'Brand Name',
-                                  style: GoogleFonts.jaldi(
-                                    textStyle: TextStyle(
-                                      fontSize: 16,
-                                      color: selectedBrand != null 
-                                          ? Colors.black87 
-                                          : Colors.grey,
-                                    ),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 15,
+                                    color: selectedBrand != null 
+                                        ? Colors.black
+                                        : Colors.black.withOpacity(0.4),
                                   ),
                                 ),
                                 Icon(
@@ -1271,12 +1468,15 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                         ),
                         if (isBrandDropdownOpen)
                           Container(
-                            margin: EdgeInsets.only(top: 4),
+                            margin: EdgeInsets.only(top: 8),
                             padding: EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(4),
+                              color: Colors.white,
+                              border: Border.all(
+                                color: Colors.black.withOpacity(0.3),
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             constraints: BoxConstraints(maxHeight: 250),
                             child: SingleChildScrollView(
@@ -1298,8 +1498,9 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                                         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                         child: Text(
                                           brand,
-                                          style: GoogleFonts.jaldi(
-                                            textStyle: TextStyle(fontSize: 16, color: Colors.black87),
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 15,
+                                            color: Colors.black,
                                           ),
                                         ),
                                       ),
@@ -1315,8 +1516,9 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                                       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                       child: Text(
                                         'Others',
-                                        style: GoogleFonts.jaldi(
-                                          textStyle: TextStyle(fontSize: 16, color: Colors.black87),
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 15,
+                                          color: Colors.black,
                                         ),
                                       ),
                                     ),
@@ -1328,26 +1530,34 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                                         children: [
                                           Text(
                                             'Other: ',
-                                            style: GoogleFonts.jaldi(
+                                            style: GoogleFonts.poppins(
                                               fontSize: 14,
-                                              color: Colors.black87,
+                                              color: Colors.black,
                                             ),
                                           ),
                                           Expanded(
                                             child: TextField(
                                               controller: customBrandInput,
                                               autofocus: true,
-                                              style: GoogleFonts.inter(
-                                                textStyle: TextStyle(fontSize: 14),
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 14,
                                                 color: Colors.black,
                                               ),
                                               decoration: InputDecoration(
                                                 hintText: "Type brand name",
-                                                hintStyle: GoogleFonts.inter(
+                                                hintStyle: GoogleFonts.poppins(
                                                   color: Colors.grey,
                                                   fontSize: 12,
                                                 ),
-                                                border: UnderlineInputBorder(),
+                                                border: UnderlineInputBorder(
+                                                  borderSide: BorderSide(color: Colors.black),
+                                                ),
+                                                enabledBorder: UnderlineInputBorder(
+                                                  borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                                                ),
+                                                focusedBorder: UnderlineInputBorder(
+                                                  borderSide: BorderSide(color: Colors.black),
+                                                ),
                                                 isDense: true,
                                                 contentPadding: EdgeInsets.symmetric(vertical: 4),
                                               ),
@@ -1387,63 +1597,65 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                           ),
                         if (brandError != null)
                           Padding(
-                            padding: EdgeInsets.only(left: 12, top: 5),
+                            padding: EdgeInsets.only(left: 16, top: 8),
                             child: Text(
                               brandError!,
-                              style: TextStyle(color: const Color.fromARGB(255, 136, 32, 24), fontSize: 12),
+                              style: TextStyle(color: Colors.redAccent, fontSize: 12),
                             ),
                           ),
                       ],
                     ),
-                    SizedBox(height: 15),
+                    SizedBox(height: 16),
                     
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TextField(
-                          controller: modelNameInput,
-                          style: GoogleFonts.inter(
-                            textStyle: TextStyle(fontSize: 17),
-                            color: Colors.black,
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: modelNameError != null 
+                                ? Colors.redAccent.withOpacity(0.5)
+                                : Colors.black.withOpacity(0.3),
+                              width: 1.5,
+                            ),
                           ),
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: modelNameError != null ? const Color.fromARGB(255, 153, 35, 27) : Colors.grey,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: modelNameError != null ? const Color.fromARGB(255, 148, 32, 24) : Colors.grey,
-                              ),
-                            ),
-                            labelText: "Model Name",
-                            labelStyle: GoogleFonts.jaldi(
-                              textStyle: TextStyle(fontSize: 18),
-                              color: Colors.grey,
-                            ),
-                            hintText: "Enter model name",
-                            hintStyle: GoogleFonts.inter(
-                              color: Colors.grey,
+                          child: TextField(
+                            controller: modelNameInput,
+                            style: GoogleFonts.poppins(
                               fontSize: 15,
+                              color: Colors.black,
                             ),
+                            decoration: InputDecoration(
+                              labelText: "Model Name",
+                              labelStyle: GoogleFonts.poppins(
+                                fontSize: 15,
+                                color: Colors.black.withOpacity(0.6),
+                              ),
+                              hintText: "Enter model name",
+                              hintStyle: GoogleFonts.poppins(
+                                color: Colors.grey,
+                                fontSize: 15,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            ),
+                            onChanged: (value) {
+                              if (value.isNotEmpty && modelNameError != null) {
+                                setDialogState(() {
+                                  modelNameError = null;
+                                });
+                              }
+                            },
                           ),
-                          onChanged: (value) {
-                            if (value.isNotEmpty && modelNameError != null) {
-                              setDialogState(() {
-                                modelNameError = null;
-                              });
-                            }
-                          },
                         ),
                         if (modelNameError != null)
                           Padding(
-                            padding: EdgeInsets.only(left: 12, top: 5),
+                            padding: EdgeInsets.only(left: 16, top: 8),
                             child: Text(
                               modelNameError!,
-                              style: TextStyle(color: const Color.fromARGB(255, 136, 29, 22), fontSize: 12),
+                              style: TextStyle(color: Colors.redAccent, fontSize: 12),
                             ),
                           ),
                       ],
@@ -1491,11 +1703,16 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                   style: ButtonStyle(
                     backgroundColor: WidgetStateProperty.all(Colors.black),
                     foregroundColor: WidgetStateProperty.all(Colors.white),
+                    padding: WidgetStateProperty.all(EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+                    shape: WidgetStateProperty.all(
+                      RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
                   child: Text(
                     'Update',
-                    style: GoogleFonts.jaldi(
-                      textStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
@@ -1511,26 +1728,70 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
   void _pickIcon() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFFE9E7E6),
-      builder: (_) => GridView.count(
-        crossAxisCount: 4,
-        shrinkWrap: true,
-        children: const [
-          Icons.light, Icons.tv, Icons.power, Icons.kitchen,
-          Icons.speaker, Icons.laptop, Icons.ac_unit, Icons.microwave,Icons.coffee_maker,Icons.radio_button_checked,
-          Icons.thermostat,Icons.doorbell,Icons.camera,Icons.sensor_door,Icons.lock,Icons.door_sliding,Icons.local_laundry_service,
-          Icons.dining,Icons.rice_bowl,Icons.wind_power,Icons.router,Icons.outdoor_grill,Icons.air,Icons.alarm,
-        ].map((icon) {
-          return IconButton(
-            icon: Icon(icon, color: Colors.black),
-            onPressed: () {
-              setState(() {
-                selectedIcon = icon;
-              });
-              Navigator.pop(context);
-            },
-          );
-        }).toList(),
+      backgroundColor: Color(0xFFE9E7E6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => Container(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            SizedBox(height: 20),
+            Text(
+              'Choose Icon',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            SizedBox(height: 20),
+            SizedBox(
+              height: 300,
+              child: GridView.count(
+                crossAxisCount: 4,
+                shrinkWrap: true,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                children: const [
+                  Icons.light, Icons.tv, Icons.power, Icons.kitchen,
+                  Icons.speaker, Icons.laptop, Icons.ac_unit, Icons.microwave, Icons.coffee_maker, Icons.radio_button_checked,
+                  Icons.thermostat, Icons.doorbell, Icons.camera, Icons.sensor_door, Icons.lock, Icons.door_sliding, Icons.local_laundry_service,
+                  Icons.dining, Icons.rice_bowl, Icons.wind_power, Icons.router, Icons.outdoor_grill, Icons.air, Icons.alarm,
+                ].map((icon) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.black.withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: IconButton(
+                      icon: Icon(icon, color: Colors.black),
+                      onPressed: () {
+                        setState(() {
+                          selectedIcon = icon;
+                        });
+                        Navigator.pop(context);
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1582,11 +1843,6 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
             behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height - 150,
-              left: 10,
-              right: 10,
-            ),
           )
         );
         return;
@@ -1615,11 +1871,6 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 5),
           behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(
-            bottom: MediaQuery.of(context).size.height - 150,
-            left: 10,
-            right: 10,
-          ),
         )
       );
     }
@@ -1673,77 +1924,7 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
     }
 
     if (isValid) {
-      if (isEditing) {
-        _updateDevice();
-      } else {
-        _submitDevice();
-      }
-    }
-  }
-
-  void _submitDevice() async {
-    final DatabaseService dbService = DatabaseService();
-    
-    final roomName = roomController.text.trim();
-    
-    final Map<String, dynamic> deviceData = {
-      "applianceName": applianceNameController.text.trim(),
-      "deviceType": deviceType,
-      "wattage": double.tryParse(wattageController.text) ?? 0.0,
-      "roomName": roomName,
-      "icon": selectedIcon.codePoint,
-      "startTime": startTime != null ? "${startTime!.hour.toString().padLeft(2, '0')}:${startTime!.minute.toString().padLeft(2, '0')}" : null,
-      "endTime": endTime != null ? "${endTime!.hour.toString().padLeft(2, '0')}:${endTime!.minute.toString().padLeft(2, '0')}" : null,
-      "days": selectedDays.entries
-          .where((entry) => entry.value)
-          .map((entry) => entry.key)
-          .toList(),
-      "relay": selectedRelay,
-      "applianceStatus": 'OFF',
-    };
-
-    try {
-      await dbService.addAppliance(applianceData: deviceData);
-      print("Device successfully added to Firestore.");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "${deviceData['applianceName']} added successfully!",
-              style: const TextStyle(color: Colors.black),
-            ),
-            backgroundColor: const Color(0xFFE9E7E6),
-            duration: const Duration(seconds: 5),
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height -150,
-              left: 10,
-              right: 10,
-            ),
-          )
-        );
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      print("Error adding device: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "Error adding device: ${e.toString()}",
-              style: const TextStyle(color: Colors.white),
-            ),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height - 150,
-              left: 10,
-              right: 10,
-            ),
-          )
-        );
-      }
+      _updateDevice();
     }
   }
 
@@ -1778,14 +1959,9 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
               "${updatedData['applianceName']} updated successfully!",
               style: const TextStyle(color: Colors.black),
             ),
-            backgroundColor: const Color(0xFFE9E7E6),
+            backgroundColor: Colors.white,
             duration: const Duration(seconds: 5),
             behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height - 150,
-              left: 10,
-              right: 10,
-            ),
           )
         );
         Navigator.of(context).pop();
@@ -1802,11 +1978,6 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
             behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height - 150,
-              left: 10,
-              right: 10,
-            ),
           )
         );
       }
@@ -1823,33 +1994,43 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFFE9E7E6),
-          title: Text('Confirm Delete'),
-          titleTextStyle: GoogleFonts.jaldi(
-            fontSize: 23, 
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),   
-          content: Text('Are you sure you want to delete "$applianceNameToDelete"?',
-            style:GoogleFonts.inter(
+          backgroundColor: Color(0xFFE9E7E6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Confirm Delete',
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
               color: Colors.black,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to delete "$applianceNameToDelete"?',
+            style: GoogleFonts.poppins(
               fontSize: 15,
-            ),   
+              color: Colors.black.withOpacity(0.8),
+            ),
           ),
           actions: <Widget>[
             TextButton(
-              child: Text('Cancel',
-                style:GoogleFonts.inter(
-                  color: Colors.black,
-                  fontSize: 15,
-                ),   
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                  color: Colors.black.withOpacity(0.7),
+                ),
               ),
               onPressed: () {
                 Navigator.of(context).pop(false);
               },
             ),
             TextButton(
-              child: Text('Delete', style: TextStyle(color: Colors.red)),
+              child: Text(
+                'Delete',
+                style: GoogleFonts.poppins(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               onPressed: () {
                 Navigator.of(context).pop(true);
               },
@@ -1870,14 +2051,9 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                 "$applianceNameToDelete deleted successfully!",
                 style: const TextStyle(color: Colors.white),
               ),
-              backgroundColor: Colors.red,
+              backgroundColor: Colors.redAccent,
               duration: const Duration(seconds: 5),
               behavior: SnackBarBehavior.floating,
-              margin: EdgeInsets.only(
-                bottom: MediaQuery.of(context).size.height - 150,
-                left: 10,
-                right: 10,
-              ),
             )
           );
           Navigator.of(context).pop();
@@ -1894,11 +2070,6 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 5),
               behavior: SnackBarBehavior.floating,
-              margin: EdgeInsets.only(
-                bottom: MediaQuery.of(context).size.height - 150,
-                left: 10,
-                right: 10,
-              ),
             )
           );
         }

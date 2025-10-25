@@ -118,8 +118,8 @@ class _OptimizedDeviceHistoryScreenState extends State<OptimizedDeviceHistoryScr
             )
           : Text(
               'Device History',
-              style: GoogleFonts.jaldi(
-                fontSize: 25,
+              style: GoogleFonts.poppins(
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
@@ -128,7 +128,7 @@ class _OptimizedDeviceHistoryScreenState extends State<OptimizedDeviceHistoryScr
         foregroundColor: Colors.black,
         elevation: 1,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, size: 24, color: Colors.black87),
           iconSize: 45,
           onPressed: () => Navigator.pop(context),
         ),
@@ -178,6 +178,7 @@ class _OptimizedDeviceHistoryScreenState extends State<OptimizedDeviceHistoryScr
       body: Column(
         children: [
           Container(
+            
             padding: EdgeInsets.all(16),
             child: Column(
               children: [
@@ -209,7 +210,7 @@ class _OptimizedDeviceHistoryScreenState extends State<OptimizedDeviceHistoryScr
                                 'Active Devices',
                                 activeDevices.toString(),
                                 Icons.timeline,
-                                Colors.blue,
+                                Colors.black,
                               );
                             },
                           );
@@ -900,9 +901,9 @@ class _OptimizedDeviceHistoryScreenState extends State<OptimizedDeviceHistoryScr
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Color(0xF06202B),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 1, blurRadius: 5)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.0), spreadRadius: 1, blurRadius: 1)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

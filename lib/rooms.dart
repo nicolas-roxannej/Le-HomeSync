@@ -19,7 +19,7 @@ class Rooms extends StatefulWidget {
   State<Rooms> createState() => RoomsState();
 }
 
-class RoomsState extends State<Rooms> {
+class RoomsState extends State<Rooms> with SingleTickerProviderStateMixin {
   Weather? _currentWeather;
   int _selectedIndex = 2;
   final RoomDataManager _roomDataManager = RoomDataManager();
@@ -27,6 +27,9 @@ class RoomsState extends State<Rooms> {
   // Search functionality variables
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
 
   // Method to get username from Firestore
   Future<String> getCurrentUsername() async {
@@ -70,9 +73,6 @@ class RoomsState extends State<Rooms> {
       }
     } catch (e) {
       print("Failed to fetch weather: $e");
-      if (mounted) {
-        // Handle weather fetch error, e.g., show a default or error message
-      }
     }
   }
 
@@ -92,6 +92,16 @@ class RoomsState extends State<Rooms> {
   @override
   void initState() {
     super.initState();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    );
+    _fadeController.forward();
+    
     _fetchWeather();
     
     // Initialize search controller listener
@@ -105,293 +115,500 @@ class RoomsState extends State<Rooms> {
   @override
   void dispose() {
     _searchController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
     return Scaffold(
-      backgroundColor: const Color(0xFFE9E7E6),
+      backgroundColor: const Color(0xFFF5F5F7),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           _showAddRoomDialog(context);
         },
         backgroundColor: Colors.black,
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(Icons.add, color: Colors.white, size: 28),
+        elevation: 8,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+        child: FadeTransition(
+          opacity: _fadeAnimation,
           child: Column(
             children: [
-              // Header section
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GestureDetector(
-                    onTap: () => _showFlyout(context),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Transform.translate(
-                          offset: Offset(0, 20),
-                          child: CircleAvatar(
-                            backgroundColor: Colors.grey,
-                            radius: 25,
-                            child: Icon(Icons.home, color: Colors.black, size: 35),
-                          ),
-                        ),
-                        SizedBox(width: 10),
-                        Transform.translate(
-                          offset: Offset(0, 20),
-                          child: SizedBox(
-                            width: 110,
-                            child: FutureBuilder<String>(
-                              future: getCurrentUsername(),
-                              builder: (context, snapshot) {
-                                return Text(
-                                  snapshot.data ?? "My Home",
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
+              // Enhanced Header with Gradient
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFFD0DDD0),
+                      Color(0xFFF8F8F8),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.09),
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // User Profile Section
+                          GestureDetector(
+                            onTap: () => _showFlyout(context),
+                            child: Row(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [Colors.black, Colors.black],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 4),
+                                      ),
+                                    ],
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                );
-                              },
+                                  child: CircleAvatar(
+                                    backgroundColor: Colors.transparent,
+                                    radius: 28,
+                                    child: Icon(Icons.home_rounded, color: Colors.white, size: 30),
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Welcome back',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    SizedBox(
+                                      width: 110,
+                                      child: FutureBuilder<String>(
+                                        future: getCurrentUsername(),
+                                        builder: (context, snapshot) {
+                                          return Text(
+                                            snapshot.data ?? " ",
+                                            style: GoogleFonts.inter(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF1A1A1A),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Weather section
-                  Transform.translate(
-                    offset: Offset(0, 20),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 31, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.cloud_circle_sharp, size: 35, color: Colors.lightBlue),
-                              SizedBox(width: 4),
-                              Transform.translate(
-                                offset: Offset(0, -5),
-                                child: _currentWeather == null
-                                    ? (_apiKey == 'YOUR_API_KEY'
-                                        ? Text('Set API Key', style: GoogleFonts.inter(fontSize: 12))
-                                        : Text('Loading...', style: GoogleFonts.inter(fontSize: 12)))
-                                    : Text(
-                                        '${_currentWeather?.temperature?.celsius?.toStringAsFixed(0) ?? '--'}°C',
-                                        style: GoogleFonts.inter(fontSize: 16),
+                          // Weather Widget
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.06),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.wb_sunny_rounded, size: 24, color: Color(0xFFFFB84D)),
+                                SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _currentWeather == null
+                                        ? Text('--°C', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600))
+                                        : Text(
+                                            '${_currentWeather?.temperature?.celsius?.toStringAsFixed(0) ?? '--'}°C',
+                                            style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+                                          ),
+                                    Text(
+                                      _currentWeather?.weatherDescription ?? 'Loading...',
+                                      style: GoogleFonts.inter(
+                                        color: Colors.grey[600],
+                                        fontSize: 10,
                                       ),
-                              ),
-                            ],
-                          ),
-                          Transform.translate(
-                            offset: Offset(40, -15),
-                            child: Text(
-                              _currentWeather?.weatherDescription ?? (_apiKey == 'YOUR_API_KEY' ? 'Weather' : 'Fetching weather...'),
-                              style: GoogleFonts.inter(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ],
-              ),
-
-              SizedBox(height: 20),
-
-              // Navigation Tabs
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildNavButton('Electricity', _selectedIndex == 0, 0),
-                  _buildNavButton('Appliance', _selectedIndex == 1, 1),
-                  _buildNavButton('Rooms', _selectedIndex == 2, 2),
-                ],
-              ),
-
-              SizedBox(
-                width: double.infinity,
-                child: Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Colors.black38,
-                ),
-              ),
-
-              const SizedBox(height: 20),
-              
-              // Search bar
-              SizedBox(
-                width: 355,
-                height: 47,
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search rooms...',
-                    hintStyle: TextStyle(fontSize: 16),
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: Color(0xFFD9D9D9),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide(
-                        color: Colors.grey,
-                        width: 1.5,
+                      SizedBox(height: 20),
+                      // Navigation Tabs
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Color(0xFFF0F0F2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        padding: EdgeInsets.all(4),
+                        child: Row(
+                          children: [
+                            _buildModernNavButton('Electricity', _selectedIndex == 0, 0),
+                            _buildModernNavButton('Appliance', _selectedIndex == 1, 1),
+                            _buildModernNavButton('Rooms', _selectedIndex == 2, 2),
+                          ],
+                        ),
                       ),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                    ],
                   ),
-                  style: TextStyle(fontSize: 16),
                 ),
               ),
 
-              // Room List
-             Expanded(
-  child: GestureDetector(
-    onTap: () {
-      FocusScope.of(context).unfocus();
-    },
-    child: StreamBuilder<QuerySnapshot>(
-      stream: FirebaseAuth.instance.currentUser != null
-          ? FirebaseFirestore.instance
-              .collection('users')
-              .doc(FirebaseAuth.instance.currentUser!.uid)
-              .collection('Rooms')
-              .snapshots()
-          : Stream.empty(),
-      builder: (context, roomSnapshot) {
-        if (roomSnapshot.hasError) {
-          print("Error fetching rooms: ${roomSnapshot.error}");
-          return Center(child: Text('Error loading rooms: ${roomSnapshot.error}'));
-        }
+              // Main Content
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: BouncingScrollPhysics(),
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Rooms Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Your Rooms',
+                              style: GoogleFonts.inter(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1A1A1A),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 20),
 
-        if (roomSnapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        }
-        
-        if (FirebaseAuth.instance.currentUser == null) {
-          return Center(child: Text('Please log in to view your rooms.'));
-        }
+                        // Search Bar
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.06),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              hintText: 'Search rooms...',
+                              hintStyle: GoogleFonts.inter(
+                                fontSize: 15,
+                                color: Colors.grey[500],
+                              ),
+                              prefixIcon: Icon(Icons.search_rounded, color: Colors.grey[600]),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(Icons.clear_rounded, color: Colors.grey[600]),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                      },
+                                    )
+                                  : null,
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                            ),
+                            style: GoogleFonts.inter(fontSize: 15),
+                          ),
+                        ),
+                        SizedBox(height: 24),
 
-        if (roomSnapshot.data!.docs.isEmpty) {
-          return Center(child: Text('No rooms found. Add a room to get started.'));
-        }
+                        // Room List
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseAuth.instance.currentUser != null
+                              ? FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(FirebaseAuth.instance.currentUser!.uid)
+                                  .collection('Rooms')
+                                  .snapshots()
+                              : Stream.empty(),
+                          builder: (context, roomSnapshot) {
+                            if (roomSnapshot.hasError) {
+                              print("Error fetching rooms: ${roomSnapshot.error}");
+                              return _buildErrorCard('Error loading rooms: ${roomSnapshot.error}');
+                            }
 
-        // Now fetch devices for all rooms
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('users')
-              .doc(FirebaseAuth.instance.currentUser!.uid)
-              .collection('appliances')
-              .snapshots(),
-          builder: (context, deviceSnapshot) {
-            if (deviceSnapshot.hasError) {
-              print("Error fetching devices: ${deviceSnapshot.error}");
-              return Center(child: Text('Error loading devices: ${deviceSnapshot.error}'));
-            }
+                            if (roomSnapshot.connectionState == ConnectionState.waiting) {
+                              return Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(40),
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                  ),
+                                ),
+                              );
+                            }
+                            
+                            if (FirebaseAuth.instance.currentUser == null) {
+                              return _buildEmptyCard('Please log in to view your rooms.');
+                            }
 
-            // Debug: Print all devices
-            if (deviceSnapshot.hasData) {
-              print("=== DEBUG: Total devices found: ${deviceSnapshot.data!.docs.length}");
-              for (final doc in deviceSnapshot.data!.docs) {
-                final data = doc.data() as Map<String, dynamic>;
-                print("Device: ${data['applianceName']} | Room: '${data['roomName']}'");
-              }
-            }
+                            if (roomSnapshot.data!.docs.isEmpty) {
+                              return _buildEmptyCard('No rooms found. Add a room to get started.');
+                            }
 
-            // Create a map of room name to appliance names
-            final Map<String, List<String>> roomDevices = {};
-            
-            if (deviceSnapshot.hasData) {
-              for (final doc in deviceSnapshot.data!.docs) {
-                final data = doc.data() as Map<String, dynamic>;
-                final roomName = data['roomName'] as String? ?? '';
-                final applianceName = data['applianceName'] as String? ?? 'Unknown Device';
-                
-                // Trim whitespace from room name to avoid mismatch issues
-                final trimmedRoomName = roomName.trim();
-                
-                if (trimmedRoomName.isNotEmpty) {
-                  if (!roomDevices.containsKey(trimmedRoomName)) {
-                    roomDevices[trimmedRoomName] = [];
-                  }
-                  roomDevices[trimmedRoomName]!.add(applianceName);
-                }
-              }
-              
-              print("=== DEBUG: Room devices map:");
-              roomDevices.forEach((room, devices) {
-                print("Room: '$room' has ${devices.length} devices: $devices");
-              });
-            }
+                            // Fetch devices for all rooms
+                            return StreamBuilder<QuerySnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(FirebaseAuth.instance.currentUser!.uid)
+                                  .collection('appliances')
+                                  .snapshots(),
+                              builder: (context, deviceSnapshot) {
+                                if (deviceSnapshot.hasError) {
+                                  print("Error fetching devices: ${deviceSnapshot.error}");
+                                  return _buildErrorCard('Error loading devices: ${deviceSnapshot.error}');
+                                }
 
-            // Convert Firestore documents to RoomItem objects with appliances
-            final List<RoomItem> allRooms = roomSnapshot.data!.docs.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              final roomName = (data['roomName'] as String? ?? 'Unknown Room').trim();
-              final iconCodePoint = data['icon'] as int? ?? Icons.home.codePoint;
-              
-              final appliances = roomDevices[roomName] ?? [];
-              
-              print("=== DEBUG: Room '$roomName' has ${appliances.length} appliances");
-              
-              return RoomItem(
-                title: roomName,
-                icon: _getIconFromCodePoint(iconCodePoint),
-                appliances: appliances,
-              );
-            }).toList();
+                                // Create a map of room name to appliance names
+                                final Map<String, List<String>> roomDevices = {};
+                                
+                                if (deviceSnapshot.hasData) {
+                                  for (final doc in deviceSnapshot.data!.docs) {
+                                    final data = doc.data() as Map<String, dynamic>;
+                                    final roomName = data['roomName'] as String? ?? '';
+                                    final applianceName = data['applianceName'] as String? ?? 'Unknown Device';
+                                    
+                                    final trimmedRoomName = roomName.trim();
+                                    
+                                    if (trimmedRoomName.isNotEmpty) {
+                                      if (!roomDevices.containsKey(trimmedRoomName)) {
+                                        roomDevices[trimmedRoomName] = [];
+                                      }
+                                      roomDevices[trimmedRoomName]!.add(applianceName);
+                                    }
+                                  }
+                                }
 
-            // Filter rooms based on search query
-            final List<RoomItem> filteredRooms = _filterRooms(allRooms);
+                                // Convert Firestore documents to RoomItem objects with appliances
+                                final List<RoomItem> allRooms = roomSnapshot.data!.docs.map((doc) {
+                                  final data = doc.data() as Map<String, dynamic>;
+                                  final roomName = (data['roomName'] as String? ?? 'Unknown Room').trim();
+                                  final iconCodePoint = data['icon'] as int? ?? Icons.home.codePoint;
+                                  
+                                  final appliances = roomDevices[roomName] ?? [];
+                                  
+                                  return RoomItem(
+                                    title: roomName,
+                                    icon: _getIconFromCodePoint(iconCodePoint),
+                                    appliances: appliances,
+                                  );
+                                }).toList();
 
-            if (filteredRooms.isEmpty && _searchQuery.isNotEmpty) {
-              return Center(
-                child: Text(
-                  "No rooms found matching '$_searchQuery'",
-                  style: GoogleFonts.inter(),
-                  textAlign: TextAlign.center,
-                )
-              );
-            }
+                                // Filter rooms based on search query
+                                final List<RoomItem> filteredRooms = _filterRooms(allRooms);
 
-            return _buildRoomsList(filteredRooms);
-        
-                 },
-        );
-      },
-    ),
-  ),
-),
+                                if (filteredRooms.isEmpty && _searchQuery.isNotEmpty) {
+                                  return _buildEmptyCard("No rooms found matching '$_searchQuery'");
+                                }
+
+                                return _buildRoomsList(filteredRooms);
+                              },
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildModernNavButton(String title, bool isSelected, int index) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedIndex = index;
+          });
+
+          switch (index) {
+            case 0:
+              Navigator.pushNamed(context, '/homepage');
+              break;
+            case 1:
+              Navigator.pushNamed(context, '/devices');
+              break;
+            case 2:
+              break;
+          }
+        },
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: 200),
+          padding: EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              title,
+              style: GoogleFonts.inter(
+                color: isSelected ? Colors.black : Colors.grey[600],
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCard(String message) {
+    return Container(
+      padding: EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 16,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.meeting_room_rounded, size: 48, color: Colors.grey[400]),
+            SizedBox(height: 12),
+            Text(
+              message,
+              style: GoogleFonts.inter(
+                color: Colors.grey[600],
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorCard(String message) {
+    return Container(
+      padding: EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 16,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.error_outline_rounded, size: 48, color: Colors.red[400]),
+            SizedBox(height: 12),
+            Text(
+              message,
+              style: GoogleFonts.inter(
+                color: Colors.grey[600],
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoomsList(List<RoomItem> rooms) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.09),
+            blurRadius: 16,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: NeverScrollableScrollPhysics(),
+        itemCount: rooms.length,
+        separatorBuilder: (context, index) => Divider(
+          height: 1,
+          indent: 70,
+          endIndent: 20,
+          color: Colors.grey[200],
+        ),
+        itemBuilder: (context, index) {
+          return RoomListTile(
+            room: rooms[index],
+            onDelete: () {
+              _deleteRoom(rooms[index].title);
+            },
+            onEdit: (newName) {
+              _editRoomName(rooms[index].title, newName);
+            },
+          );
+        },
       ),
     );
   }
@@ -404,7 +621,6 @@ class RoomsState extends State<Rooms> {
         return;
       }
 
-      // Find the room document by roomName in the user's Rooms subcollection
       final roomQuerySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
@@ -416,7 +632,6 @@ class RoomsState extends State<Rooms> {
       if (roomQuerySnapshot.docs.isNotEmpty) {
         final roomIdToDelete = roomQuerySnapshot.docs.first.id;
         
-        // Delete the room document
         await FirebaseFirestore.instance
             .collection('users')
             .doc(userId)
@@ -429,7 +644,6 @@ class RoomsState extends State<Rooms> {
         print('Room not found for deletion: $roomName');
       }
 
-      //  delete all devices associated with the room from the user's appliances subcollection
       final deviceQuerySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
@@ -458,7 +672,6 @@ class RoomsState extends State<Rooms> {
         return;
       }
 
-      // Find the room document by oldName in the user's Rooms subcollection
       final roomQuerySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
@@ -470,7 +683,6 @@ class RoomsState extends State<Rooms> {
       if (roomQuerySnapshot.docs.isNotEmpty) {
         final roomIdToUpdate = roomQuerySnapshot.docs.first.id;
         
-        // Update the room document with the new name
         await FirebaseFirestore.instance
             .collection('users')
             .doc(userId)
@@ -483,7 +695,6 @@ class RoomsState extends State<Rooms> {
         print('Room not found for editing: $oldName');
       }
 
-      // update the roomName field in all associated devices in the user's appliances subcollection
       final deviceQuerySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
@@ -510,159 +721,232 @@ class RoomsState extends State<Rooms> {
 
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFFE9E7E6),
-        titleTextStyle: GoogleFonts.jaldi(
-          fontSize: 25,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
-        title: Text('Add Room'),
-        content: StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            return SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: roomInput,
-                    style: GoogleFonts.inter(
-                      textStyle: TextStyle(fontSize: 17),
-                      color: Colors.black,
-                    ),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(),
-                      hintText: "Room name",
-                      hintStyle: GoogleFonts.inter(
-                        color: Colors.grey,
-                        fontSize: 15,
-                      ),
-                      prefixIcon: Icon(
-                        roomIconSelected,
-                        color: Colors.black,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 15),
-                  Text(
-                    'Select Icon',
-                    style: GoogleFonts.jaldi(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Container(
-                    height: 200,
-                    width: double.maxFinite,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: GridView.count(
-                      crossAxisCount: 4,
-                      shrinkWrap: true,
-                      children: const [
-                        Icons.living, Icons.bed, Icons.kitchen, Icons.dining,
-                        Icons.bathroom, Icons.meeting_room,Icons.garage, Icons.local_library, Icons.stairs,
-                      ].map((icon) {
-                        return IconButton(
-                          icon: Icon(
-                            icon,
-                          ),
-                          onPressed: () {
-                            setDialogState(() {
-                              roomIconSelected = icon;
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-        ),
-
-        actions: [
-          TextButton(
-            onPressed: () async {
-              if (roomInput.text.isNotEmpty) {
-                final newRoomName = roomInput.text;
-                final iconCodePoint = roomIconSelected.codePoint;
-
-                final userId = FirebaseAuth.instance.currentUser?.uid;
-                if (userId == null) {
-                  print("User not authenticated. Cannot add room.");
-                  if (mounted) {
-                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("User not authenticated. Cannot add room."))
-                    );
-                  }
-                  Navigator.pop(context);
-                  return;
-                }
-
-                // Add a room document to the user's Rooms subcollection
-                final roomData = {
-                  'roomName': newRoomName,
-                  'icon': iconCodePoint,
-                  'createdAt': FieldValue.serverTimestamp(),
-                };
-
-                try {
-                  await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(userId)
-                      .collection('Rooms')
-                      .add(roomData);
-
-                  print('Added room: $newRoomName to user $userId Rooms subcollection with auto-generated ID');
-
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Room '$newRoomName' added successfully!"))
-                    );
-                  }
-
-                } catch (e) {
-                  print('Error adding room to user subcollection: $e');
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Failed to add room: ${e.toString()}"))
-                    );
-                  }
-                }
-              }
-              Navigator.pop(context);
-            },
-            style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.all(Colors.black),
-              foregroundColor: WidgetStateProperty.all(Colors.white),
-            ),
-            child: Text(
-              'Add',
-              style: GoogleFonts.jaldi(
-                textStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                color: Colors.white,
-              ),
-            ),
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Container(
+          padding: EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
           ),
-        ],
+          child: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setDialogState) {
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Add Room',
+                      style: GoogleFonts.inter(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    TextField(
+                      controller: roomInput,
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        color: Colors.black,
+                      ),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        hintText: "Room name",
+                        hintStyle: GoogleFonts.inter(
+                          color: Colors.grey[500],
+                          fontSize: 15,
+                        ),
+                        prefixIcon: Container(
+                          padding: EdgeInsets.all(8),
+                          child: Icon(
+                            roomIconSelected,
+                            color: Colors.black,
+                            size: 24,
+                          ),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      'Select Icon',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Container(
+                      height: 200,
+                      width: double.maxFinite,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: GridView.count(
+                        crossAxisCount: 4,
+                        shrinkWrap: true,
+                        padding: EdgeInsets.all(8),
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        children: const [
+                          Icons.living, Icons.bed, Icons.kitchen, Icons.dining,
+                          Icons.bathroom, Icons.meeting_room, Icons.garage, Icons.local_library, Icons.stairs,
+                        ].map((icon) {
+                          bool isSelected = roomIconSelected == icon;
+                          return GestureDetector(
+                            onTap: () {
+                              setDialogState(() {
+                                roomIconSelected = icon;
+                              });
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.black : Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                icon,
+                                color: isSelected ? Colors.white : Colors.black,
+                                size: 28,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child: Text(
+                            'Cancel',
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: () async {
+                            if (roomInput.text.isNotEmpty) {
+                              final newRoomName = roomInput.text;
+                              final iconCodePoint = roomIconSelected.codePoint;
+
+                              final userId = FirebaseAuth.instance.currentUser?.uid;
+                              if (userId == null) {
+                                print("User not authenticated. Cannot add room.");
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("User not authenticated. Cannot add room."),
+                                      backgroundColor: Colors.red[400],
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  );
+                                }
+                                Navigator.pop(context);
+                                return;
+                              }
+
+                              final roomData = {
+                                'roomName': newRoomName,
+                                'icon': iconCodePoint,
+                                'createdAt': FieldValue.serverTimestamp(),
+                              };
+
+                              try {
+                                await FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(userId)
+                                    .collection('Rooms')
+                                    .add(roomData);
+
+                                print('Added room: $newRoomName to user $userId Rooms subcollection with auto-generated ID');
+
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Row(
+                                        children: [
+                                          Icon(Icons.check_circle_rounded, color: Colors.white),
+                                          SizedBox(width: 12),
+                                          Text("Room '$newRoomName' added successfully!"),
+                                        ],
+                                      ),
+                                      backgroundColor: Color(0xFF4CAF50),
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                print('Error adding room to user subcollection: $e');
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("Failed to add room: ${e.toString()}"),
+                                      backgroundColor: Colors.red[400],
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  );
+                                }
+                              }
+                            }
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'Add',
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }
+          ),
+        ),
       ),
     );
   }
 
-void _showFlyout(BuildContext context) {
+  void _showFlyout(BuildContext context) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
       barrierLabel: "Dismiss",
+      barrierColor: Colors.black.withOpacity(0.5),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
         return Align(
@@ -671,88 +955,127 @@ void _showFlyout(BuildContext context) {
             position: Tween<Offset>(
               begin: const Offset(-1, 0),
               end: Offset.zero,
-            ).animate(animation),
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
             child: Material(
-              color: const Color.fromARGB(255, 225, 225, 225),
-              elevation: 8,
+              color: Color(0xFFE9E7E6),
+              elevation: 16,
               child: Container(
-                width: MediaQuery.of(context).size.width * 0.7,
+                width: MediaQuery.of(context).size.width * 0.75,
                 height: MediaQuery.of(context).size.height,
-                padding: const EdgeInsets.all(16.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 40),
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Colors.grey,
-                      child: Icon(Icons.home, size: 50, color: Colors.black),
-                    ),
-                    const SizedBox(height: 16),
-                    FutureBuilder<String>(
-                      future: getCurrentUsername(),
-                      builder: (context, snapshot) {
-                        return Text(
-                          snapshot.data ?? "Loading...",
-                          style: GoogleFonts.mPlusRounded1c(
-                            fontSize: 25,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black
+                    Container(
+                      padding: const EdgeInsets.all(30.0),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFE9EFEC), Colors.white],
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 20),
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.black, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Colors.black,
+                              child: Icon(Icons.home_rounded, size: 45, color: Colors.white),
+                            ),
                           ),
-                        );
-                      },
+                          const SizedBox(height: 16),
+                          FutureBuilder<String>(
+                            future: getCurrentUsername(),
+                            builder: (context, snapshot) {
+                              return Text(
+                                snapshot.data ?? "Loading...",
+                                style: GoogleFonts.inter(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                    const Divider(height: 32, thickness: 1),
-                    ListTile(
-                      leading: const Icon(Icons.person, size: 30, color: Colors.black),
-                     title: Text("Profile", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/profile');
-                      },
+                    Expanded(
+                      child: ListView(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        children: [
+                          _buildMenuTile(
+                            Icons.person_rounded,
+                            "Profile",
+                            () {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/profile');
+                            },
+                          ),
+                          _buildMenuTile(
+                            Icons.notifications_rounded,
+                            "Notifications",
+                            () {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/notification');
+                            },
+                          ),
+                          _buildMenuTile(
+                            Icons.info_rounded,
+                            "About",
+                            () {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/about');
+                            },
+                          ),
+                          _buildMenuTile(
+                            Icons.help_rounded,
+                            "Help",
+                            () {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/help');
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.notifications, size: 30, color: Colors.black),
-                      title: const Text("Notifications", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/notification');
-                      },
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: Colors.grey[400]!, width: 1),
+                        ),
+                      ),
+                      child: _buildMenuTile(
+                        Icons.logout_rounded,
+                        "Log Out",
+                        () async {
+                          Navigator.pop(context);
+                          await FirebaseAuth.instance.signOut();
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (context) => WelcomeScreen(),
+                            ),
+                            (Route<dynamic> route) => false,
+                          );
+                        },
+                        isDestructive: true,
+                      ),
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.info_rounded, size: 30, color: Colors.black),
-                      title: const Text("About", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/about');
-                      },
-                    ),
-
-                    ListTile(
-                      leading: const Icon(Icons.help_rounded, size: 30, color: Colors.black),
-                      title: const Text("Help?", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/help');
-                      },
-                    ),
-                   
-                    const Spacer(),
-                    ListTile(
-                  leading: const Padding(
-                    padding: EdgeInsets.only(left: 5),
-                    child: Icon(Icons.logout, color: Colors.red,),
-                  ),
-                  title: Text('Logout', style: GoogleFonts.inter(color: Colors.red)),
-                  onTap: () async {
-                    Navigator.pop(context); 
-                    await FirebaseAuth.instance.signOut();  // Change this line
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (context) => WelcomeScreen()),
-                      (Route<dynamic> route) => false,
-                    );
-                  },
-                ),
                   ],
                 ),
               ),
@@ -762,67 +1085,33 @@ void _showFlyout(BuildContext context) {
       },
     );
   }
-  /// Navigation Button
-  Widget _buildNavButton(String title, bool isSelected, int index) {
-    return Column(
-      children: [
-        TextButton(
-          onPressed: () {
-            setState(() => _selectedIndex = index);
-            switch (index) {
-              case 0:
-                Navigator.pushNamed(context, '/homepage');
-                break;
-              case 1:
-                Navigator.pushNamed(context, '/devices');
-                break;
-              case 2:
-                Navigator.pushNamed(context, '/rooms');
-                break;
-            }
-          },
-          child: Text(
-            title,
-            style: GoogleFonts.inter(
-              color: isSelected ? Colors.black : Colors.grey[400],
-              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-              fontSize: 17,
-            ),
-          ),
+
+  Widget _buildMenuTile(IconData icon, String title, VoidCallback onTap, {bool isDestructive = false}) {
+    return ListTile(
+      contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      leading: Container(
+        padding: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isDestructive 
+              ? Colors.red.withOpacity(0.1) 
+              : Colors.black.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
         ),
-        if (isSelected)
-          Transform.translate(
-            offset: const Offset(0, -10),
-            child: Container(
-              height: 2,
-              width: 70,
-              color: Colors.brown,
-              margin: const EdgeInsets.only(top: 1),
-            ),
-          ),
-      ],
-    );
-  }
-  
-  // Helper method roomlist
-  Widget _buildRoomsList(List<RoomItem> rooms) {
-    return ListView.separated(
-      itemCount: rooms.length,
-      separatorBuilder: (context, index) => Divider(
-        height: 1,
-        color: Colors.grey[300],
+        child: Icon(
+          icon,
+          size: 24,
+          color: isDestructive ? Colors.red : Colors.black,
+        ),
       ),
-      itemBuilder: (context, index) {
-        return RoomListTile(
-          room: rooms[index],
-          onDelete: () {
-            _deleteRoom(rooms[index].title);
-          },
-          onEdit: (newName) {
-            _editRoomName(rooms[index].title, newName);
-          },
-        );
-      },
+      title: Text(
+        title,
+        style: GoogleFonts.inter(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: isDestructive ? Colors.red : Color(0xFF1A1A1A),
+        ),
+      ),
+      onTap: onTap,
     );
   }
 }
@@ -904,37 +1193,50 @@ class RoomListTile extends StatelessWidget {
         _showEditDialog(context);
       },
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 25, horizontal: 16),
-        color: Colors.transparent,
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.transparent),
-                color: Colors.transparent,
+                gradient: LinearGradient(
+                  colors: [Colors.grey.withOpacity(0.4), Colors.grey.withOpacity(0.4)],
+                ),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(
-                room.icon,
-                color: Colors.black87,
-                size: 40,
-              ),
+              child: Icon(room.icon, size: 28, color: Colors.black),
             ),
             SizedBox(width: 16),
             Expanded(
-              child: Text(
-                room.title,
-                style: GoogleFonts.judson(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    room.title,
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  if (room.appliances.isNotEmpty)
+                    Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Text(
+                        '${room.appliances.length} ${room.appliances.length == 1 ? 'device' : 'devices'}',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             Icon(
-              Icons.chevron_right,
-              color: Colors.black,
-              size: 40,
+              Icons.chevron_right_rounded,
+              color: Colors.grey[400],
+              size: 24,
             ),
           ],
         ),
@@ -942,99 +1244,241 @@ class RoomListTile extends StatelessWidget {
     );
   }
 
-  // Show appliances in this room
   void _showAppliancesDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFFE9E7E6),
-          title: Text('Appliances in ${room.title}',
-            style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: room.appliances.isEmpty
-              ? Text('No appliances in this room',
-                  style: GoogleFonts.inter())
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: room.appliances.length,
-                  itemBuilder: (context, index) {
-                    return ListTile(
-                      leading: Icon(Icons.devices),
-                      title: Text(room.appliances[index],
-                        style: GoogleFonts.inter()),
-                    );
-                  },
-                ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              style: ButtonStyle(
-                backgroundColor: WidgetStateProperty.all(Colors.black),
-                foregroundColor: WidgetStateProperty.all(Colors.white),
-              ),
-              child: Text('Close', style: GoogleFonts.inter()),
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: Container(
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
             ),
-          ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Appliances in ${room.title}',
+                  style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                SizedBox(height: 20),
+                SizedBox(
+                  width: double.maxFinite,
+                  child: room.appliances.isEmpty
+                      ? Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Center(
+                            child: Column(
+                              children: [
+                                Icon(Icons.devices_other_rounded, size: 40, color: Colors.grey[400]),
+                                SizedBox(height: 12),
+                                Text(
+                                  'No appliances in this room',
+                                  style: GoogleFonts.inter(
+                                    color: Colors.grey[600],
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : Container(
+                          constraints: BoxConstraints(maxHeight: 300),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: room.appliances.length,
+                            separatorBuilder: (context, index) => Divider(
+                              height: 1,
+                              color: Colors.grey[200],
+                            ),
+                            itemBuilder: (context, index) {
+                              return Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Icon(Icons.devices, size: 20, color: Colors.black),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        room.appliances[index],
+                                        style: GoogleFonts.inter(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                ),
+                SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Close',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
   }
   
-  // edit name content
   void _showEditDialog(BuildContext context) {
-    final TextEditingController nameController = TextEditingController(text: room.title);
+  final TextEditingController nameController = TextEditingController(text: room.title);
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFFE9E7E6),
-          title: Text('Edit Room Name', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-          content: TextField(
-            controller: nameController,
-            decoration: InputDecoration(
-              hintText: 'Room Name',
-              filled: true,
-              fillColor: Colors.grey[200],
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        insetPadding: EdgeInsets.symmetric(horizontal: 16),
+        child: SingleChildScrollView(
+          child: Container(
+            width: double.maxFinite,
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Edit Room',
+                  style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                SizedBox(height: 20),
+                TextField(
+                  controller: nameController,
+                  style: GoogleFonts.inter(fontSize: 16),
+                  decoration: InputDecoration(
+                    hintText: 'Room Name',
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  ),
+                ),
+                SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        onDelete();
+                        Navigator.of(context).pop();
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      icon: Icon(Icons.delete_rounded, color: Colors.red, size: 20),
+                      label: Text(
+                        'Delete',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          child: Text(
+                            'Cancel',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        ElevatedButton(
+                          onPressed: () {
+                            if (nameController.text.isNotEmpty) {
+                              onEdit(nameController.text);
+                            }
+                            Navigator.of(context).pop();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'Save',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('Cancel', style: GoogleFonts.inter(color: Colors.black)),
-            ),
-            TextButton(
-              onPressed: () {
-                if (nameController.text.isNotEmpty) {
-                  onEdit(nameController.text);
-                }
-                Navigator.of(context).pop();
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.transparent,
-              ),
-              child: Text('Save', style: GoogleFonts.inter(color: Colors.black)),
-            ),
-            TextButton(
-              onPressed: () {
-                onDelete();
-                Navigator.of(context).pop();
-              },
-              child: Text('Delete', style: GoogleFonts.inter(color: Colors.red)),
-            ),
-          ],
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 }

@@ -18,46 +18,62 @@ class AboutScreen extends StatelessWidget {
               padding: const EdgeInsets.only(left: 5, top: 65),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      size: 50,
-                      color: Colors.black,
+                  Container(
+                    decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => Navigator.pop(context),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new,
+                        size: 22,
+                        color: Colors.black87,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                    ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 16),
                   Text(
                     'ABOUT & LEGAL',
                     style: GoogleFonts.jaldi(
-                      fontSize: 23,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ],
               ),
             ),
             
-            const SizedBox(height: 30),
+            const SizedBox(height: 35),
             
             // App Info Section
             _buildAppInfoCard(),
             
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
             
             // Legal Documents Section
-            Text(
-              'Legal Documents',
-              style: GoogleFonts.jaldi(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                'Legal Documents',
+                style: GoogleFonts.jaldi(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
               ),
             ),
             
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
     
             _buildAgreementCard(
               context,
@@ -75,7 +91,7 @@ class AboutScreen extends StatelessWidget {
             // EULA Card
             _buildAgreementCard(
               context,
-              title: 'End-User License Agreement (EULA)',
+              title: 'End-User License Agreement',
               icon: Icons.description_outlined,
               onTap: () => _showAgreementDialog(
                 context,
@@ -126,16 +142,16 @@ class AboutScreen extends StatelessWidget {
 
   Widget _buildAppInfoCard() {
   return Container(
-    padding: const EdgeInsets.only(left: 40, right: 15, top: 20, bottom: 20),
+    padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 20),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(1),
-      border: Border.all(color: Colors.black, width: 1),
+      borderRadius: BorderRadius.circular(24),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.1),
-          blurRadius: 4,
-          offset: const Offset(2, 2),
+          color: Colors.black.withOpacity(0.06),
+          blurRadius: 20,
+          offset: const Offset(0, 4),
+          spreadRadius: 0,
         ),
       ],
     ),
@@ -146,56 +162,87 @@ class AboutScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            
             const SizedBox(height: 80),
-            Text(
-              'HomeSync',
-              style: GoogleFonts.jaldi(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
+            
+            // App Name with gradient effect
+            ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [Colors.black87, Colors.black54],
+              ).createShader(bounds),
+              child: Text(
+                'HomeSync',
+                style: GoogleFonts.jaldi(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
             
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             
-            Text(
-              'Version 1.0.0',
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                color: Colors.grey[600],
+            // Version Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE9E7E6),
+                borderRadius: BorderRadius.circular(20),
               ),
-              textAlign: TextAlign.center,
+              child: Text(
+                'Version 1.0.0',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
             
             Text(
               'Smart Home Management System',
               style: GoogleFonts.inter(
-                fontSize: 14,
-                color: Colors.grey[700],
+                fontSize: 15,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.2,
               ),
               textAlign: TextAlign.center,
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             
-            Text(
-              'Developed by MRLD Tech Solutions',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFFE9E7E6).withOpacity(0.5),
+                    const Color(0xFFE9E7E6).withOpacity(0.3),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
               ),
-              textAlign: TextAlign.center,
+              child: Text(
+                'Developed by MRLD Tech Solutions',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
           ],
         ),
         Positioned(
           top: -70,
-          left: 1,
-          right: 28,
+          left: 0,
+          right: 0,
           child: Center(
             child: Image.asset(
               'assets/homebg.png',
@@ -214,48 +261,77 @@ class AboutScreen extends StatelessWidget {
     required IconData icon,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(1),
-          border: Border.all(color: Colors.black, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 3,
-              offset: const Offset(2, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE9E7E6),
-                borderRadius: BorderRadius.circular(1),
-                border: Border.all(color: Colors.black, width: 1),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
+                spreadRadius: 0,
               ),
-              child: Icon(icon, size: 24),
-            ),
-            
-            const SizedBox(width: 16),
-            
-            Expanded(
-              child: Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFFE9E7E6),
+                        const Color(0xFFE9E7E6).withOpacity(0.7),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 24,
+                    color: Colors.black87,
+                  ),
                 ),
-              ),
+                
+                const SizedBox(width: 16),
+                
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+                
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE9E7E6).withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ],
             ),
-            
-            const Icon(Icons.chevron_right, size: 24),
-          ],
+          ),
         ),
       ),
     );
@@ -263,58 +339,124 @@ class AboutScreen extends StatelessWidget {
   
   Widget _buildContactSection() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(1),
-        border: Border.all(color: Colors.black, width: 1),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 3,
-            offset: const Offset(2, 2),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Contact Information',
-            style: GoogleFonts.jaldi(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFE9E7E6),
+                      const Color(0xFFE9E7E6).withOpacity(0.6),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.contact_support_outlined,
+                  size: 22,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Contact Information',
+                style: GoogleFonts.jaldi(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+          
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE9E7E6).withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.location_on_outlined,
+                    size: 20,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Dasmariñas City, Cavite, Philippines',
+                    style: GoogleFonts.inter(
+                      fontSize: 13.5,
+                      color: Colors.grey[800],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           
           const SizedBox(height: 12),
           
-          Row(
-            children: [
-              const Icon(Icons.location_on, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Dasmariñas City, Cavite, Philippines',
-                  style: GoogleFonts.inter(fontSize: 13),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE9E7E6).withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.email_outlined,
+                    size: 20,
+                    color: Colors.grey[700],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 8),
-          
-          Row(
-            children: [
-              const Icon(Icons.email, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'mrldtechsolutions.support@gmail.com',
-                  style: GoogleFonts.inter(fontSize: 13),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'mrldtechsolutions.support@gmail.com',
+                    style: GoogleFonts.inter(
+                      fontSize: 13.5,
+                      color: Colors.grey[800],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -326,36 +468,67 @@ class AboutScreen extends StatelessWidget {
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 50),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(0),
+            borderRadius: BorderRadius.circular(24),
           ),
           backgroundColor: Colors.transparent,
           child: Container(
             width: MediaQuery.of(context).size.width * 0.9,
-            height: MediaQuery.of(context).size.height * 0.85,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE9E7E6),
+            height: MediaQuery.of(context).size.height * 0.82,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE9E7E6),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Column(
               children: [
-                // Title
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                  child: Text(
-                    title,
-                    style: GoogleFonts.jaldi(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
+                // Title with close icon
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(24),
+                      topRight: Radius.circular(24),
                     ),
-                    textAlign: TextAlign.center,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: GoogleFonts.jaldi(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 22,
+                            color: Colors.black87,
+                            letterSpacing: 0.3,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 
                 // Content
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
+                    physics: const BouncingScrollPhysics(),
                     child: _buildAgreementContent(content),
                   ),
                 ),
@@ -365,24 +538,43 @@ class AboutScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   child: SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(1),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        elevation: 5,
-                        shadowColor: Colors.black.withOpacity(0.5),
-                      ),
-                      child: Text(
-                        'Close',
-                        style: GoogleFonts.judson(
-                          fontSize: 18,
-                          color: Colors.black,
-                          fontWeight: FontWeight.w600,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => Navigator.of(context).pop(),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.white,
+                                Colors.white.withOpacity(0.95),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Close',
+                              style: GoogleFonts.judson(
+                                fontSize: 17,
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -409,13 +601,36 @@ class AboutScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (index > 0) 
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Divider(color: Colors.black12, thickness: 0.5),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Container(
+                  height: 1,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.08),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            Text(
-              section,
-              style: GoogleFonts.inter(fontSize: 13, height: 1.5),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                section,
+                style: GoogleFonts.inter(
+                  fontSize: 13.5,
+                  height: 1.6,
+                  color: Colors.grey[800],
+                  letterSpacing: 0.2,
+                ),
+              ),
             ),
           ],
         );

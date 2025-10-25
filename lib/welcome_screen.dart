@@ -78,11 +78,11 @@ class WelcomeScreen extends StatelessWidget {
               },
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-                 backgroundColor: Colors.white,
+                 backgroundColor: Colors.black,
                  shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(0), 
+                borderRadius: BorderRadius.circular(20), 
                 side: BorderSide(
-                color: Colors.black, 
+                color: Colors.white, 
                 width: 1,
                 ),
                  ),
@@ -95,7 +95,7 @@ class WelcomeScreen extends StatelessWidget {
                 style: GoogleFonts.jaldi(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.black, 
+                color: Colors.white, 
                 ),
             ),
             ),
@@ -111,11 +111,11 @@ Transform.translate( // btn sign up
               },
               style: OutlinedButton.styleFrom(
                 padding: EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-                backgroundColor: Colors.white,
+                backgroundColor: Colors.black,
                  shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(0), 
+                borderRadius: BorderRadius.circular(20), 
                 side: BorderSide(
-                color: Colors.black, 
+                color: Colors.white, 
                 width: 1,
               ),
                ),
@@ -128,7 +128,7 @@ Transform.translate( // btn sign up
                 style: GoogleFonts.jaldi(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.black, 
+                color: Colors.white, 
                 ),
 
             

@@ -18,51 +18,68 @@ class HelpScreen extends StatelessWidget {
               padding: const EdgeInsets.only(left: 5, top: 65),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      size: 50,
-                      color: Colors.black,
+                  Container(
+                    decoration: BoxDecoration(
+                       color: Colors.black.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => Navigator.pop(context),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new,
+                        size: 22,
+                        color: Colors.black87,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                    ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 16),
                   Text(
                     'HELP CENTER',
                     style: GoogleFonts.jaldi(
-                      fontSize: 23,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ],
               ),
             ),
             
-            const SizedBox(height: 30),
+            const SizedBox(height: 35),
             
             // Welcome Card
             _buildWelcomeCard(),
             
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
             
             // Help Topics Section
-            Text(
-              'Help Topics',
-              style: GoogleFonts.jaldi(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                'Help Topics',
+                style: GoogleFonts.jaldi(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
               ),
             ),
             
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             
             // Getting Started
             _buildHelpCard(
               context,
               title: 'Getting Started',
+              icon: Icons.rocket_launch_outlined,
               onTap: () => _showHelpDialog(
                 context,
                 'Getting Started',
@@ -76,6 +93,7 @@ class HelpScreen extends StatelessWidget {
             _buildHelpCard(
               context,
               title: 'Profile & Navigation',
+              icon: Icons.account_circle_outlined,
               onTap: () => _showHelpDialog(
                 context,
                 'Profile & Navigation',
@@ -89,6 +107,7 @@ class HelpScreen extends StatelessWidget {
             _buildHelpCard(
               context,
               title: 'Device Management',
+              icon: Icons.devices_outlined,
               onTap: () => _showHelpDialog(
                 context,
                 'Device Management',
@@ -102,6 +121,7 @@ class HelpScreen extends StatelessWidget {
             _buildHelpCard(
               context,
               title: 'Rooms Management',
+              icon: Icons.meeting_room_outlined,
               onTap: () => _showHelpDialog(
                 context,
                 'Rooms Management',
@@ -115,6 +135,7 @@ class HelpScreen extends StatelessWidget {
             _buildHelpCard(
               context,
               title: 'Electricity Dashboard',
+              icon: Icons.electric_bolt_outlined,
               onTap: () => _showHelpDialog(
                 context,
                 'Electricity Dashboard',
@@ -128,6 +149,7 @@ class HelpScreen extends StatelessWidget {
             _buildHelpCard(
               context,
               title: 'Notifications',
+              icon: Icons.notifications_outlined,
               onTap: () => _showHelpDialog(
                 context,
                 'Notifications',
@@ -141,14 +163,13 @@ class HelpScreen extends StatelessWidget {
             _buildHelpCard(
               context,
               title: 'Alarm & Scheduling',
+              icon: Icons.alarm_outlined,
               onTap: () => _showHelpDialog(
                 context,
                 'Alarm & Scheduling',
                 _getAlarmSchedulingText(),
               ),
             ),
-            
-            const SizedBox(height: 12),
             
             const SizedBox(height: 30),
             
@@ -164,42 +185,59 @@ class HelpScreen extends StatelessWidget {
 
   Widget _buildWelcomeCard() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(1),
-        border: Border.all(color: Colors.black, width: 1),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(2, 2),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
           ),
         ],
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.help_rounded,
-            size: 50,
-            color: Colors.black,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFE9E7E6),
+                  const Color(0xFFE9E7E6).withOpacity(0.7),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(
+              Icons.help_outline_rounded,
+              size: 56,
+              color: Colors.black87,
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
           Text(
             'HomeSync Help Center',
             style: GoogleFonts.jaldi(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+              letterSpacing: 0.3,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             'Your quick guide to navigating and using all the features of the HomeSync Home Automation App.',
             style: GoogleFonts.inter(
-              fontSize: 14,
-              color: Colors.grey[700],
-              height: 1.5,
+              fontSize: 14.5,
+              color: Colors.grey[600],
+              height: 1.6,
+              letterSpacing: 0.2,
             ),
             textAlign: TextAlign.center,
           ),
@@ -211,38 +249,80 @@ class HelpScreen extends StatelessWidget {
   Widget _buildHelpCard(
     BuildContext context, {
     required String title,
+    required IconData icon,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(1),
-          border: Border.all(color: Colors.black, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 3,
-              offset: const Offset(2, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
+                spreadRadius: 0,
               ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFFE9E7E6),
+                        const Color(0xFFE9E7E6).withOpacity(0.7),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 24,
+                    color: Colors.black87,
+                  ),
+                ),
+                
+                const SizedBox(width: 16),
+                
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+                
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE9E7E6).withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ],
             ),
-            
-            const Icon(Icons.chevron_right, size: 24),
-          ],
+          ),
         ),
       ),
     );
@@ -250,16 +330,15 @@ class HelpScreen extends StatelessWidget {
 
   Widget _buildSupportSection() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(1),
-        border: Border.all(color: Colors.black, width: 1),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 3,
-            offset: const Offset(2, 2),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -268,51 +347,121 @@ class HelpScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFE9E7E6),
+                      const Color(0xFFE9E7E6).withOpacity(0.6),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.support_agent_outlined,
+                  size: 22,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(width: 12),
               Text(
                 'Need More Help?',
                 style: GoogleFonts.jaldi(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
                 ),
               ),
             ],
           ),
           
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           
           Text(
             'If you experience issues or have suggestions, you can reach out to our support team.',
             style: GoogleFonts.inter(
               fontSize: 14,
               color: Colors.grey[700],
-              height: 1.5,
+              height: 1.6,
+              letterSpacing: 0.2,
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE9E7E6).withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.email_outlined,
+                    size: 20,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'mrldtechsolutions.support@gmail.com',
+                    style: GoogleFonts.inter(
+                      fontSize: 13.5,
+                      color: Colors.grey[800],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           
           const SizedBox(height: 16),
           
-          Row(
-            children: [
-              const Icon(Icons.email, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'mrldtechsolutions.support@gmail.com',
-                  style: GoogleFonts.inter(fontSize: 13),
-                ),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFE9E7E6).withOpacity(0.2),
+                  const Color(0xFFE9E7E6).withOpacity(0.1),
+                ],
               ),
-            ],
-          ),
-          
-          const SizedBox(height: 12),
-          
-          Text(
-            'We\'re always happy to assist you in keeping your home smart, safe, and energy efficient.',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFE9E7E6).withOpacity(0.5),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.favorite_outline,
+                  size: 18,
+                  color: Colors.grey[600],
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'We\'re always happy to assist you in keeping your home smart, safe, and energy efficient.',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -325,36 +474,67 @@ class HelpScreen extends StatelessWidget {
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 50),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(0),
+            borderRadius: BorderRadius.circular(24),
           ),
           backgroundColor: Colors.transparent,
           child: Container(
             width: MediaQuery.of(context).size.width * 0.9,
-            height: MediaQuery.of(context).size.height * 0.85,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE9E7E6),
+            height: MediaQuery.of(context).size.height * 0.82,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE9E7E6),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Column(
               children: [
-                // Title
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                  child: Text(
-                    title,
-                    style: GoogleFonts.jaldi(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
+                // Title with close icon
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(24),
+                      topRight: Radius.circular(24),
                     ),
-                    textAlign: TextAlign.center,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: GoogleFonts.jaldi(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 22,
+                            color: Colors.black87,
+                            letterSpacing: 0.3,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 
                 // Content
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
+                    physics: const BouncingScrollPhysics(),
                     child: _buildHelpContent(content),
                   ),
                 ),
@@ -364,24 +544,43 @@ class HelpScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   child: SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(1),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        elevation: 5,
-                        shadowColor: Colors.black.withOpacity(0.5),
-                      ),
-                      child: Text(
-                        'Close',
-                        style: GoogleFonts.judson(
-                          fontSize: 18,
-                          color: Colors.black,
-                          fontWeight: FontWeight.w600,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => Navigator.of(context).pop(),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.white,
+                                Colors.white.withOpacity(0.95),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Close',
+                              style: GoogleFonts.judson(
+                                fontSize: 17,
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -414,23 +613,40 @@ class HelpScreen extends StatelessWidget {
           children: [
             if (index > 0 && isNumberedHeading) 
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Container(
                   height: 1,
-                  color: Colors.black.withOpacity(0.1),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.08),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
                 ),
               ),
             
-            Text(
-              section.replaceAll('**', ''),
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                height: 3,
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                section.replaceAll('**', ''),
+                style: GoogleFonts.inter(
+                  fontSize: 13.5,
+                  height: 1.6,
+                  color: Colors.grey[800],
+                  letterSpacing: 0.2,
+                ),
               ),
             ),
             
             if (index < sections.length - 1 && !isNumberedHeading)
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
           ],
         );
       }).toList(),

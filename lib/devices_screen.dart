@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:homesync/adddevices.dart';
-import 'package:homesync/notification_screen.dart'; // ADDED from first code
+import 'package:homesync/helpscreen.dart';
+import 'package:homesync/notification_screen.dart';
 import 'package:weather/weather.dart';
 import 'package:homesync/welcome_screen.dart';
 import 'package:homesync/relay_state.dart';
-import 'package:homesync/databaseservice.dart'; // ADDED from first code
+import 'package:homesync/databaseservice.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:homesync/notification_manager.dart';
 import 'package:homesync/notification_service.dart';
@@ -14,7 +15,7 @@ import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:homesync/services/relay_state_service.dart';
-import 'package:homesync/about.dart'; // ADDED from first code
+import 'package:homesync/about.dart';
 
 const String _apiKey = 'd542f2e03ea5728e77e367f19c0fb675';
 const String _cityName = 'Manila';
@@ -29,7 +30,7 @@ class DevicesScreen extends StatefulWidget {
 class DevicesScreenState extends State<DevicesScreen> {
   Weather? _currentWeather;
   int _selectedIndex = 1;
-  final DatabaseService _dbService = DatabaseService(); // ADDED from first code
+  final DatabaseService _dbService = DatabaseService();
 
   // Stream subscriptions for proper cleanup
   StreamSubscription<QuerySnapshot>? _appliancesSubscription;
@@ -241,7 +242,7 @@ class DevicesScreenState extends State<DevicesScreen> {
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      print("⚠️ User not authenticated. Cannot fetch appliances.");
+      print("User not authenticated. Cannot fetch appliances.");
       if (mounted) {
         setState(() {
           _devices = [];
@@ -251,172 +252,168 @@ class DevicesScreenState extends State<DevicesScreen> {
       return;
     }
 
-    print("🔊 Setting up appliances listener...");
-    print("Authenticated user: ${user.email}"); // ADDED from first code
-
     _appliancesSubscription = FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
         .collection('appliances')
         .snapshots()
-        .listen(
-          (snapshot) {
-            if (!mounted) return;
-
-            setState(() {
-              _devices = snapshot.docs;
-              _filterDevices();
-
-              print(
-                "Found ${_devices.length} devices from Firestore", // ADDED from first code
-              );
-              print("Device fields: applianceName, applianceStatus, deviceType, icon, roomName"); // ADDED from first code
-
-              for (int i = 0; i < min(_devices.length, 3); i++) {
-                final data = _devices[i].data();
-                print(
-                  "Device ${i + 1}: ${data['applianceName']} (${data['roomName']}) - ${data['applianceStatus']}",
-                );
-              }
-            });
-          },
-          onError: (error) {
-            print("❌ Error listening to appliances: $error");
-            if (mounted) {
-              setState(() {
-                _devices = [];
-                _filteredDevices = [];
-              });
-            }
-          },
-        );
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          _devices = snapshot.docs;
+          _filterDevices();
+        });
+      }
+    }, onError: (error) {
+      print("Error listening to appliances: $error");
+      if (mounted) {
+        setState(() {
+          _devices = [];
+          _filteredDevices = [];
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
-    print("🧹 Disposing DevicesScreen - cancelling listeners...");
+    _searchController.dispose();
     _appliancesSubscription?.cancel();
     _allRelaysSubscription?.cancel();
-    _searchController.dispose();
     super.dispose();
   }
 
-  // Master power toggle (APP ONLY)
   void _toggleMasterPower() async {
-    bool newMasterState = !_masterPowerButtonState;
-
-    setState(() {
-      _masterPowerButtonState = newMasterState;
-      RelayState.masterPowerOn = newMasterState;
-    });
+    if (!_masterPowerButtonState) {
+      setState(() {
+        _masterPowerButtonState = true;
+      });
+      return;
+    }
 
     try {
-      final userUid = FirebaseAuth.instance.currentUser!.uid;
-
-      if (!newMasterState) {
-        print("🔴 Master power OFF - turning off all devices...");
-
-        List<Future<void>> updateFutures = [];
-
-        // Turn off all 5 hardware relays
-        for (String relayKey in [
-          'relay1',
-          'relay3',
-          'relay4',
-          'relay7',
-          'relay8',
-        ]) {
-          RelayState.relayStates[relayKey] = 0;
-          updateFutures.add(Future(() async {
-            try {
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(userUid)
-                  .collection('relay_states')
-                  .doc(relayKey)
-                  .set({
-                'state': 0,
-                'irControlled': false,
-                'ldrControlled': false,
-                'source': 'master_power',
-              }, SetOptions(merge: true));
-            } catch (e) {
-              print('DevicesScreen: Failed to set relay $relayKey via service fallback: $e');
-            }
-          }));
-        }
-
-        // Turn off all appliances (will be synced automatically by listener)
-        for (var deviceDoc in _devices) {
-          updateFutures.add(
-            FirebaseFirestore.instance
-                .collection('users')
-                .doc(userUid)
-                .collection('appliances')
-                .doc(deviceDoc.id)
-                .update({'applianceStatus': 'OFF'}),
-          );
-        }
-
-        await Future.wait(updateFutures);
-        print("✅ Master power OFF - all devices turned off");
-
-        // Persist a system notification summarizing the master power toggle
-        try {
-          await NotificationService().showSystemNotification(
-            title: 'Master Power',
-            message: 'Master power has been turned OFF. All devices were turned off.',
-          );
-        } catch (e) {
-          print('DevicesScreen: Failed to show master power system notification: $e');
-        }
-
-        // Persist an individual device notification for each appliance
-        try {
-          final List<Future<void>> notifFutures = [];
-          for (var deviceDoc in _devices) {
-            final deviceData = deviceDoc.data();
-            final String name = deviceData['applianceName'] ?? '';
-            final String room = deviceData['roomName'] ?? '';
-            notifFutures.add(NotificationManager().notifyDeviceStatusChange(
-              deviceName: name,
-              room: room,
-              isOn: false,
-              applianceId: deviceDoc.id,
-            ));
-          }
-          await Future.wait(notifFutures);
-        } catch (e) {
-          print('DevicesScreen: Failed to persist per-appliance notifications for master power OFF: $e');
-        }
-      } else {
-        print("🟢 Master power ON - devices can be controlled");
-        try {
-          await NotificationService().showSystemNotification(
-            title: 'Master Power',
-            message: 'Master power has been turned ON. Devices can now be controlled.',
-          );
-        } catch (e) {
-          print('DevicesScreen: Failed to show master power ON system notification: $e');
-        }
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception("User not authenticated");
       }
 
-      print("Master power toggled to ${newMasterState ? 'ON' : 'OFF'}"); // ADDED from first code
-    } catch (e) {
-      print("❌ Error during master power toggle: $e");
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+
+      print("🔴 Master power OFF - turning off all devices...");
+
+      List<Future<void>> updateFutures = [];
+      final userUid = user.uid;
+
+      // Turn off all 5 hardware relays
+      for (String relayKey in [
+        'relay1',
+        'relay3',
+        'relay4',
+        'relay7',
+        'relay8',
+      ]) {
+        RelayState.relayStates[relayKey] = 0;
+        updateFutures.add(Future(() async {
+          try {
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userUid)
+                .collection('relay_states')
+                .doc(relayKey)
+                .set({
+              'state': 0,
+              'irControlled': false,
+              'ldrControlled': false,
+              'source': 'master_power',
+            }, SetOptions(merge: true));
+          } catch (e) {
+            print('DevicesScreen: Failed to set relay $relayKey: $e');
+          }
+        }));
+      }
+
+      // Turn off all appliances
+      for (var deviceDoc in _devices) {
+        updateFutures.add(
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(userUid)
+              .collection('appliances')
+              .doc(deviceDoc.id)
+              .update({'applianceStatus': 'OFF'}),
+        );
+      }
+
+      await Future.wait(updateFutures);
+      print("✅ Master power OFF - all devices turned off");
+
+      // Send notifications
+      try {
+        await NotificationService().showSystemNotification(
+          title: 'Master Power',
+          message: 'Master power has been turned OFF. All devices were turned off.',
+        );
+      } catch (e) {
+        print('DevicesScreen: Failed to show master power system notification: $e');
+      }
+
+      try {
+        final List<Future<void>> notifFutures = [];
+        for (var deviceDoc in _devices) {
+          final deviceData = deviceDoc.data();
+          final String name = deviceData['applianceName'] ?? '';
+          final String room = deviceData['roomName'] ?? '';
+          notifFutures.add(NotificationManager().notifyDeviceStatusChange(
+            deviceName: name,
+            room: room,
+            isOn: false,
+            applianceId: deviceDoc.id,
+          ));
+        }
+        await Future.wait(notifFutures);
+      } catch (e) {
+        print('DevicesScreen: Failed to send device notifications: $e');
+      }
+
       if (mounted) {
+        Navigator.pop(context);
+        setState(() {
+          _masterPowerButtonState = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              "Error toggling master power: ${e.toString()}",
-              style: const TextStyle(color: Colors.white),
+            content: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white),
+                SizedBox(width: 12),
+                Text('All devices turned off successfully'),
+              ],
             ),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
+            backgroundColor: Color(0xFF4CAF50),
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: Duration(seconds: 2),
           ),
         );
-        _listenToAppliances(); // ADDED from first code
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error turning off devices: ${e.toString()}"),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
       }
     }
   }
@@ -425,128 +422,80 @@ class DevicesScreenState extends State<DevicesScreen> {
     String applianceName,
     String currentStatus,
   ) async {
-    if (!_masterPowerButtonState) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "Cannot toggle device when master power is OFF",
-            style: const TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5), // CHANGED from 3 to 5 to match first code
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
+    const double DEFAULT_KWHR_RATE = 0.15;
+    
     try {
-      final deviceDoc = _devices.firstWhere(
-        (doc) => doc.data()['applianceName'] == applianceName,
-      );
-      final deviceData = deviceDoc.data();
-      final String relayKey = deviceData['relay'] as String? ?? '';
+      print("🔄 Starting toggle for $applianceName...");
 
-      // Check if IR controlled
-      if (RelayState.irControlledStates[relayKey] == true &&
-          currentStatus == 'ON') {
-        bool? confirmTurnOff = await showDialog<bool>(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text("Confirm Turn Off"),
-              content: Text(
-                "This device is currently controlled by IR. Do you want to force it OFF?", // KEPT original wording from second code
-              ),
-              actions: <Widget>[
-                TextButton(
-                  child: Text("Cancel"),
-                  onPressed: () => Navigator.of(context).pop(false),
-                ),
-                TextButton(
-                  child: Text("Turn Off"),
-                  onPressed: () => Navigator.of(context).pop(true),
-                ),
-              ],
-            );
-          },
-        );
+      final newStatus = (currentStatus == 'ON') ? 'OFF' : 'ON';
 
-        if (confirmTurnOff != true) return;
-      } else if (RelayState.irControlledStates[relayKey] == true && currentStatus == 'OFF') {
-        // ADDED from first code - empty else block for IR controlled OFF state
-      }
-
-      // Check if LDR controlled
-      if (RelayState.ldrControlledStates[relayKey] == true &&
-          currentStatus == 'ON') {
-        bool? confirmTurnOff = await showDialog<bool>(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text("Confirm Turn Off"),
-              content: Text(
-                "This device is currently controlled by wall switch (LDR). Do you want to force it OFF?",
-              ),
-              actions: <Widget>[
-                TextButton(
-                  child: Text("Cancel"),
-                  onPressed: () => Navigator.of(context).pop(false),
-                ),
-                TextButton(
-                  child: Text("Turn Off"),
-                  onPressed: () => Navigator.of(context).pop(true),
-                ),
-              ],
-            );
-          },
-        );
-
-        if (confirmTurnOff != true) return;
-      }
-
-      final newStatus = currentStatus == 'ON' ? 'OFF' : 'ON';
-      print(
-        "Toggling device $applianceName from $currentStatus to $newStatus", // ADDED from first code
-      );
-      print("Device data: $deviceData"); // ADDED from first code
-
-      if (relayKey.isNotEmpty) {
-        int newRelayState = newStatus == 'ON' ? 1 : 0;
-        RelayState.relayStates[relayKey] = newRelayState; // ADDED from first code
-
-        print("Updating relay state: $relayKey to $newRelayState"); // ADDED from first code
-        try {
-          final relayService = RelayStateService(firestore: FirebaseFirestore.instance);
-          await relayService.setApplianceStateForCurrentUser(
-            applianceId: deviceDoc.id, 
-            turnOn: newStatus == 'ON', 
-            source: 'manual'
+      final deviceDoc =
+          _devices.firstWhere(
+            (doc) => doc.data()['applianceName'] == applianceName,
           );
-          print("✅ Updated $relayKey via RelayStateService to state=$newRelayState");
-        } catch (e) {
-          print('DevicesScreen: RelayStateService failed, falling back to direct write for $relayKey: $e');
-          final userUid = FirebaseAuth.instance.currentUser!.uid;
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userUid)
-              .collection('relay_states')
-              .doc(relayKey)
-              .set({
-                'state': newRelayState,
-                'irControlled': false,
-                'ldrControlled': false,
-                'source': 'manual',
-                'applianceId': deviceDoc.id,
-              }, SetOptions(merge: true));
-        }
+      final deviceData = deviceDoc.data();
+      final String relay = deviceData['relay'] as String? ?? '';
+
+      if (relay.isEmpty) {
+        throw Exception("No relay assigned to this appliance");
       }
 
-      print("Updating appliance status in Firestore"); // ADDED from first code
-      // Update appliance status
+      bool isIrControlled =
+          RelayState.irControlledStates[relay] ?? false;
+      bool isLdrControlled =
+          RelayState.ldrControlledStates[relay] ?? false;
+
+      if (isIrControlled || isLdrControlled) {
+        final controlType =
+            isIrControlled ? 'IR sensor' : 'LDR sensor';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "Cannot toggle $applianceName - controlled by $controlType",
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+        return;
+      }
+
+      int newRelayState = (newStatus == 'ON') ? 1 : 0;
+      RelayState.relayStates[relay] = newRelayState;
+      
+      print("📤 Updating relay state: $relay to $newRelayState");
+      try {
+        final relayService = RelayStateService(firestore: FirebaseFirestore.instance);
+        await relayService.setApplianceStateForCurrentUser(
+          applianceId: deviceDoc.id,
+          turnOn: newStatus == 'ON',
+          source: 'manual'
+        );
+        print("✅ Updated $relay via RelayStateService to state=$newRelayState");
+      } catch (e) {
+        print('DevicesScreen: RelayStateService failed, falling back to direct write for $relay: $e');
+        final userUid = FirebaseAuth.instance.currentUser!.uid;
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userUid)
+            .collection('relay_states')
+            .doc(relay)
+            .set({
+          'state': newRelayState,
+          'irControlled': false,
+          'ldrControlled': false,
+          'source': 'manual',
+        }, SetOptions(merge: true));
+      }
+
       Map<String, dynamic> updateData = {
         'applianceStatus': newStatus,
-        'lastToggleTime': FieldValue.serverTimestamp(), // ADDED from first code
+        'lastModified': FieldValue.serverTimestamp(),
       };
 
       await FirebaseFirestore.instance
@@ -610,6 +559,7 @@ class DevicesScreenState extends State<DevicesScreen> {
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
@@ -619,7 +569,7 @@ class DevicesScreenState extends State<DevicesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE9E7E6),
+      backgroundColor: Color(0xFFF8F8F8),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -629,323 +579,415 @@ class DevicesScreenState extends State<DevicesScreen> {
         },
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        elevation: 4,
         child: const Icon(Icons.add),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFF8F8F8),
+                Colors.white,
+              ],
+            ),
+          ),
           child: Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GestureDetector(
-                    onTap: () => _showFlyout(context),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Transform.translate(
-                          offset: Offset(0, 20),
-                          child: CircleAvatar(
-                            backgroundColor: Colors.grey,
-                            radius: 25,
-                            child: Icon(
-                              Icons.home,
-                              color: Colors.black,
-                              size: 35,
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 10),
-                        Transform.translate(
-                          offset: Offset(0, 20),
-                          child: SizedBox(
-                            width: 110,
-                            child: FutureBuilder<String>(
-                              future: getCurrentUsername(),
-                              builder: (context, snapshot) {
-                                return Text(
-                                  snapshot.data ?? " ",
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+              // Enhanced Header with Gradient
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFFD0DDD0),
+                      Color(0xFFF8F8F8),
+                    ],
                   ),
-
-                  Transform.translate(
-                    offset: Offset(0, 20),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 31,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.09),
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.cloud_circle_sharp,
-                                size: 35,
-                                color: Colors.lightBlue,
-                              ),
-                              SizedBox(width: 4),
-                              Transform.translate(
-                                offset: Offset(0, -5),
-                                child:
-                                    _currentWeather == null
-                                        ? Text(
-                                          'Loading...',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 12,
-                                          ),
-                                        )
-                                        : Text(
-                                          '${_currentWeather?.temperature?.celsius?.toStringAsFixed(0) ?? '--'}°C',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                              ),
-                            ],
+                          // User Profile Section
+                          GestureDetector(
+                            onTap: () => _showFlyout(context),
+                            child: Row(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [Colors.black, Colors.black],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: CircleAvatar(
+                                    backgroundColor: Colors.transparent,
+                                    radius: 28,
+                                    child: Icon(Icons.home_rounded, color: Colors.white, size: 30),
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Welcome back',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    SizedBox(
+                                      width: 110,
+                                      child: FutureBuilder<String>(
+                                        future: getCurrentUsername(),
+                                        builder: (context, snapshot) {
+                                          return Text(
+                                            snapshot.data ?? " ",
+                                            style: GoogleFonts.inter(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF1A1A1A),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                          Transform.translate(
-                            offset: Offset(40, -15),
-                            child: Text(
-                              _currentWeather?.weatherDescription ??
-                                  'Loading weather...',
-                              style: GoogleFonts.inter(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                          // Weather Widget
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.06),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.wb_sunny_rounded, size: 24, color: Color(0xFFFFB84D)),
+                                SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _currentWeather == null
+                                        ? Text('--°C', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600))
+                                        : Text(
+                                            '${_currentWeather?.temperature?.celsius?.toStringAsFixed(0) ?? '--'}°C',
+                                            style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+                                          ),
+                                    Text(
+                                      _currentWeather?.weatherDescription ?? 'Loading...',
+                                      style: GoogleFonts.inter(
+                                        color: Colors.grey[600],
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ],
-              ),
-
-              SizedBox(height: 20),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildNavButton('Electricity', _selectedIndex == 0, 0),
-                  _buildNavButton('Appliance', _selectedIndex == 1, 1),
-                  _buildNavButton('Rooms', _selectedIndex == 2, 2),
-                ],
-              ),
-
-              SizedBox(
-                width: double.infinity,
-                child: Divider(height: 1, thickness: 1, color: Colors.black38),
-              ),
-
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    FocusScope.of(context).unfocus();
-                  },
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 20),
-
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      SizedBox(height: 20),
+                      // Navigation Tabs
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Color(0xFFF0F0F2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        padding: EdgeInsets.all(4),
+                        child: Row(
                           children: [
-                            Expanded(
-                              child: SizedBox(
-                                height: 47,
+                            _buildModernNavButton('Electricity', _selectedIndex == 0, 0),
+                            _buildModernNavButton('Appliance', _selectedIndex == 1, 1),
+                            _buildModernNavButton('Rooms', _selectedIndex == 2, 2),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Main Content
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: BouncingScrollPhysics(),
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Search and Master Power Section
+                        Row(
+                          children: [
+                            Flexible(
+                              flex: 1,
+                              child: Container(
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.06),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
                                 child: TextField(
                                   controller: _searchController,
                                   decoration: InputDecoration(
-                                    hintText: 'Search appliance...',
-                                    hintStyle: TextStyle(fontSize: 16),
-                                    prefixIcon: const Icon(Icons.search),
-                                    suffixIcon:
-                                        _searchQuery.isNotEmpty
-                                            ? IconButton(
-                                              icon: Icon(Icons.clear),
-                                              onPressed: () {
-                                                _searchController.clear();
-                                              },
-                                            )
-                                            : null,
-                                    filled: true,
-                                    fillColor: Color(0xFFD9D9D9),
+                                    hintText: 'Search appliances...',
+                                    hintStyle: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      color: Colors.grey[500],
+                                    ),
+                                    prefixIcon: Icon(Icons.search_rounded, color: Colors.grey[600]),
+                                    suffixIcon: _searchQuery.isNotEmpty
+                                        ? IconButton(
+                                            icon: Icon(Icons.clear_rounded, color: Colors.grey[600]),
+                                            onPressed: () {
+                                              _searchController.clear();
+                                            },
+                                          )
+                                        : null,
+                                    filled: false,
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(30),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey,
-                                        width: 1.5,
-                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide.none,
                                     ),
                                     contentPadding: EdgeInsets.symmetric(
-                                      vertical: 12,
-                                      horizontal: 20,
+                                      vertical: 14,
+                                      horizontal: 16,
                                     ),
                                   ),
-                                  style: TextStyle(fontSize: 16),
-                                  onChanged: (value) {
-                                    // Empty callback kept from first code
-                                  },
+                                  style: GoogleFonts.inter(fontSize: 14),
                                 ),
                               ),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8.0),
+                            SizedBox(width: 12),
+                            GestureDetector(
+                              onTap: _toggleMasterPower,
                               child: Container(
+                                height: 50,
+                                width: 50,
                                 decoration: BoxDecoration(
-                                  color:
-                                      _masterPowerButtonState
-                                          ? Colors.black
-                                          : Colors.grey,
-                                  borderRadius: BorderRadius.circular(24),
+                                  color: _masterPowerButtonState ? Colors.black : Colors.grey[400],
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (_masterPowerButtonState ? Colors.black : Colors.grey)
+                                          .withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
-                                child: IconButton(
-                                  icon: Icon(
-                                    Icons.power_settings_new,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.power_settings_new_rounded,
                                     color: Colors.white,
-                                    size: 28,
+                                    size: 26,
                                   ),
-                                  onPressed: _toggleMasterPower,
-                                  tooltip: 'Master Power',
                                 ),
                               ),
                             ),
                           ],
                         ),
 
-                        const SizedBox(height: 25),
+                        SizedBox(height: 24),
 
-                        _filteredDevices.isEmpty
-                            ? SizedBox(
-                              height: 200,
-                              child: Center(
-                                child: Text(
-                                  _searchQuery.isNotEmpty
-                                      ? "No devices found matching '$_searchQuery'"
-                                      : "No devices found.",
-                                  style: GoogleFonts.inter(),
-                                  textAlign: TextAlign.center,
+                        // Devices Section Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Your Devices',
+                              style: GoogleFonts.inter(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1A1A1A),
+                              ),
+                            ),
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${_filteredDevices.length} devices',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF1A1A1A),
                                 ),
                               ),
-                            )
-                            : GridView.builder(
-                              shrinkWrap: true,
-                              physics: NeverScrollableScrollPhysics(),
-                              padding: const EdgeInsets.only(bottom: 70),
-                              itemCount: _filteredDevices.length,
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    crossAxisSpacing: 10,
-                                    mainAxisSpacing: 10,
-                                  ),
-                              itemBuilder: (context, index) {
-                                final deviceDoc = _filteredDevices[index];
-                                final deviceData = deviceDoc.data();
-                                final String applianceName =
-                                    deviceData['applianceName'] as String? ??
-                                    'Unknown Device';
-                                final String roomName =
-                                    deviceData['roomName'] as String? ??
-                                    'Unknown Room';
-                                final String deviceType =
-                                    deviceData['deviceType'] as String? ??
-                                    'Unknown Type';
-                                final String applianceStatus =
-                                    deviceData['applianceStatus'] as String? ??
-                                    'OFF';
-                                final bool isOn = applianceStatus == 'ON';
-                                final int iconCodePoint =
-                                    (deviceData['icon'] is int)
-                                        ? deviceData['icon'] as int
-                                        : Icons.devices.codePoint;
+                            ),
+                          ],
+                        ),
 
-                                return GestureDetector(
-                                  onTap: () {
-                                    if (_masterPowerButtonState) {
-                                      _toggleIndividualDevice(
-                                        applianceName,
-                                        applianceStatus,
-                                      );
-                                    } else {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            "Turn on master power first",
-                                            style: const TextStyle(
-                                              color: Colors.white,
+                        SizedBox(height: 20),
+
+                        // Devices Grid
+                        _filteredDevices.isEmpty
+                            ? Container(
+                                padding: EdgeInsets.all(60),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.06),
+                                      blurRadius: 20,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.devices_other_rounded,
+                                        size: 64,
+                                        color: Colors.grey[300],
+                                      ),
+                                      SizedBox(height: 16),
+                                      Text(
+                                        _searchQuery.isNotEmpty
+                                            ? "No devices found matching '$_searchQuery'"
+                                            : 'No devices found',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.grey[600],
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      if (_searchQuery.isEmpty) ...[
+                                        SizedBox(height: 8),
+                                        Text(
+                                          'Tap + to add your first device',
+                                          style: GoogleFonts.inter(
+                                            color: Colors.grey[500],
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : GridView.builder(
+                                shrinkWrap: true,
+                                physics: NeverScrollableScrollPhysics(),
+                                padding: const EdgeInsets.only(bottom: 20),
+                                itemCount: _filteredDevices.length,
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                  childAspectRatio: 0.9,
+                                ),
+                                itemBuilder: (context, index) {
+                                  final deviceDoc = _filteredDevices[index];
+                                  final deviceData = deviceDoc.data();
+                                  final String applianceName =
+                                      deviceData['applianceName'] as String? ?? 'Unknown Device';
+                                  final String roomName =
+                                      deviceData['roomName'] as String? ?? 'Unknown Room';
+                                  final String deviceType =
+                                      deviceData['deviceType'] as String? ?? 'Unknown Type';
+                                  final String applianceStatus =
+                                      deviceData['applianceStatus'] as String? ?? 'OFF';
+                                  final bool isOn = applianceStatus == 'ON';
+                                  final int iconCodePoint =
+                                      (deviceData['icon'] is int)
+                                          ? deviceData['icon'] as int
+                                          : Icons.devices.codePoint;
+
+                                  return GestureDetector(
+                                    onTap: () {
+                                      if (_masterPowerButtonState) {
+                                        _toggleIndividualDevice(
+                                          applianceName,
+                                          applianceStatus,
+                                        );
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Row(
+                                              children: [
+                                                Icon(Icons.warning_rounded, color: Colors.white),
+                                                SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Text(
+                                                    "Turn on master power first",
+                                                    style: GoogleFonts.inter(color: Colors.white),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            backgroundColor: Colors.orange[700],
+                                            behavior: SnackBarBehavior.floating,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(10),
                                             ),
                                           ),
-                                          backgroundColor: Colors.red,
-                                          duration: const Duration(seconds: 5),
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  onLongPress: () {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/editdevice',
-                                      arguments: {'applianceId': deviceDoc.id},
-                                    );
-                                  },
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color:
-                                          _masterPowerButtonState && isOn
-                                              ? Colors.black
-                                              : Color(0xFFD9D9D9),
-                                      borderRadius: BorderRadius.circular(10),
-                                      // ADDED: Box shadows from first code
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.grey.withOpacity(0.3),
-                                          spreadRadius: 1,
-                                          blurRadius: 3,
-                                          offset: Offset(0, 2),
-                                        )
-                                      ],
-                                    ),
+                                        );
+                                      }
+                                    },
                                     child: DeviceCard(
                                       applianceName: applianceName,
                                       roomName: roomName,
                                       deviceType: deviceType,
                                       isOn: isOn,
-                                      icon: _getIconFromCodePoint(
-                                        iconCodePoint,
-                                      ),
+                                      icon: _getIconFromCodePoint(iconCodePoint),
                                       applianceStatus: applianceStatus,
                                       masterSwitchIsOn: _masterPowerButtonState,
                                       applianceId: deviceDoc.id,
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
+                                  );
+                                },
+                              ),
                       ],
                     ),
                   ),
@@ -958,12 +1000,61 @@ class DevicesScreenState extends State<DevicesScreen> {
     );
   }
 
-  // UPDATED: Flyout menu from first code (with About screen added)
-   void _showFlyout(BuildContext context) {
+  Widget _buildModernNavButton(String title, bool isSelected, int index) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedIndex = index;
+          });
+
+          switch (index) {
+            case 0:
+              Navigator.pushNamed(context, '/homepage');
+              break;
+            case 1:
+              break;
+            case 2:
+              Navigator.pushNamed(context, '/rooms');
+              break;
+          }
+        },
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: 200),
+          padding: EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              color: isSelected ? Colors.black : Colors.grey[600],
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFlyout(BuildContext context) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
       barrierLabel: "Dismiss",
+      barrierColor: Colors.black.withOpacity(0.5),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
         return Align(
@@ -972,89 +1063,140 @@ class DevicesScreenState extends State<DevicesScreen> {
             position: Tween<Offset>(
               begin: const Offset(-1, 0),
               end: Offset.zero,
-            ).animate(animation),
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
             child: Material(
-              color: const Color.fromARGB(255, 225, 225, 225),
-              elevation: 8,
+              color: Color(0xFFE9E7E6),
+              elevation: 16,
               child: Container(
-                width: MediaQuery.of(context).size.width * 0.7,
+                width: MediaQuery.of(context).size.width * 0.75,
                 height: MediaQuery.of(context).size.height,
-                padding: const EdgeInsets.all(16.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 40),
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Colors.grey,
-                      child: Icon(Icons.home, size: 50, color: Colors.black),
-                    ),
-                    const SizedBox(height: 16),
-                    FutureBuilder<String>(
-                      future: getCurrentUsername(),
-                      builder: (context, snapshot) {
-                        return Text(
-                          snapshot.data ?? "Loading...",
-                          style: GoogleFonts.mPlusRounded1c(
-                            fontSize: 25,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black
-                          ),
-                        );
-                      },
-                    ),
-                    const Divider(height: 32, thickness: 1),
-                    ListTile(
-                      leading: const Icon(Icons.person, size: 30, color: Colors.black),
-                     title: Text("Profile", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/profile');
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.notifications, size: 30, color: Colors.black),
-                      title: const Text("Notifications", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/notification');
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.info_rounded, size: 30, color: Colors.black),
-                      title: const Text("About", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/about');
-                      },
-                    ),
-
-                    ListTile(
-                      leading: const Icon(Icons.help_rounded, size: 30, color: Colors.black),
-                      title: const Text("Help?", style: TextStyle(fontFamily: 'hudson', fontSize: 18,fontWeight: FontWeight.w400)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/help');
-                      },
-                    ),
-                   
-                    const Spacer(),
-                    ListTile(
-                      leading: const Icon(Icons.logout, color: Colors.red),
-                      title: const Text(
-                        "Log Out",
-                        style: TextStyle(color: Colors.red),
+                    Container(
+                      padding: const EdgeInsets.all(30.0),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFE9EFEC), Colors.white],
+                        ),
                       ),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        await _auth.signOut();
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                            builder: (context) => WelcomeScreen(),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 20),
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.black, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Colors.black,
+                              child: Icon(Icons.home_rounded, size: 45, color: Colors.white),
+                            ),
                           ),
-                          (Route<dynamic> route) => false,
-                        );
-                      },
+                          const SizedBox(height: 16),
+                          FutureBuilder<String>(
+                            future: getCurrentUsername(),
+                            builder: (context, snapshot) {
+                              return Text(
+                                snapshot.data ?? "Loading...",
+                                style: GoogleFonts.inter(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        children: [
+                          _buildMenuTile(
+                            Icons.person_rounded,
+                            "Profile",
+                            () {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/profile');
+                            },
+                          ),
+                          _buildMenuTile(
+                            Icons.notifications_rounded,
+                            "Notifications",
+                            () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => NotificationScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          _buildMenuTile(
+                            Icons.info_rounded,
+                            "About",
+                            () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => AboutScreen()),
+                              );
+                            },
+                          ),
+                           _buildMenuTile(
+                            Icons.help_rounded,
+                            "Help?",
+                            () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => HelpScreen()),
+                              );
+                            },
+                          ),
+                        
+                        ],
+                        
+                      ),
+                    ),
+                    
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: Colors.grey[400]!, width: 1),
+                        ),
+                      ),
+                      child: _buildMenuTile(
+                        Icons.logout_rounded,
+                        "Log Out",
+                        () async {
+                          Navigator.pop(context);
+                          await _auth.signOut();
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (context) => WelcomeScreen(),
+                            ),
+                            (Route<dynamic> route) => false,
+                          );
+                        },
+                        isDestructive: true,
+                      ),
                     ),
                   ],
                 ),
@@ -1066,48 +1208,33 @@ class DevicesScreenState extends State<DevicesScreen> {
     );
   }
 
-  Widget _buildNavButton(String title, bool isSelected, int index) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TextButton(
-          onPressed: () {
-            setState(() => _selectedIndex = index);
-            switch (index) {
-              case 0:
-                Navigator.pushNamed(context, '/homepage');
-                break;
-              case 1:
-                break;
-              case 2:
-                Navigator.pushNamed(context, '/rooms');
-                break;
-            }
-          },
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            minimumSize: Size(80, 36),
-          ),
-          child: Text(
-            title,
-            style: GoogleFonts.inter(
-              color: isSelected ? Colors.black : Colors.grey[600],
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              fontSize: 16,
-            ),
-          ),
+  Widget _buildMenuTile(IconData icon, String title, VoidCallback onTap,
+      {bool isDestructive = false}) {
+    return ListTile(
+      contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      leading: Container(
+        padding: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isDestructive
+              ? Colors.red.withOpacity(0.1)
+              : Colors.black.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
         ),
-        if (isSelected)
-          Transform.translate(
-            offset: const Offset(0, -10),
-            child: Container(
-              height: 2,
-              width: 70,
-              color: Colors.brown[600],
-              margin: const EdgeInsets.only(top: 1),
-            ),
-          ),
-      ],
+        child: Icon(
+          icon,
+          size: 24,
+          color: isDestructive ? Colors.red : Colors.black,
+        ),
+      ),
+      title: Text(
+        title,
+        style: GoogleFonts.inter(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: isDestructive ? Colors.red : Color(0xFF1A1A1A),
+        ),
+      ),
+      onTap: onTap,
     );
   }
 }
@@ -1141,120 +1268,169 @@ class DeviceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool effectiveIsOn = masterSwitchIsOn && isOn;
 
-    return Stack(
-      children: [
-        Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: effectiveIsOn ? Colors.white : Colors.black,
-              width: 4,
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: effectiveIsOn
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.black,
+                  Colors.grey[900]!,
+                ],
+              )
+            : null,
+        color: effectiveIsOn ? null : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: effectiveIsOn
+                ? Colors.black.withOpacity(0.5)
+                : Colors.black.withOpacity(0.5),
+            blurRadius: effectiveIsOn ? 16 : 12,
+            offset: Offset(0, effectiveIsOn ? 6 : 2),
           ),
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: effectiveIsOn ? Colors.white : Colors.black,
-                size: 35,
-              ),
-              const SizedBox(height: 1),
-
-              Text(
-                applianceName,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: effectiveIsOn ? Colors.white : Colors.black,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-
-              Text(
-                roomName,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: effectiveIsOn ? Colors.white : Colors.black,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-
-              Text(
-                deviceType,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: effectiveIsOn ? Colors.white : Colors.black,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-
-              const SizedBox(height: 1),
-              Text(
-                effectiveIsOn ? 'ON' : 'OFF',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: effectiveIsOn ? Colors.white : Colors.black,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        Positioned(
-          top: 10,
-          right: 9,
-          child: InkWell(
-            onTap: () {
-              if (applianceStatus == 'ON') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      "Turn off the appliance before editing.",
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    backgroundColor: Colors.red,
-                    duration: const Duration(seconds: 5),
-                    behavior: SnackBarBehavior.floating,
+        ],
+      ),
+      child: Stack(
+        children: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                Container(
+                  padding: EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: effectiveIsOn
+                        ? Colors.white.withOpacity(0.2)
+                        : Colors.black.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                );
-              } else {
-                Navigator.pushNamed(
-                  context,
-                  '/editdevice',
-                  arguments: {'applianceId': applianceId},
-                );
-              }
-            },
-            child: Container(
-              padding: EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color:
-                    effectiveIsOn
-                        ? Colors.white30
-                        : Colors.grey.withOpacity(0.3),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.edit,
-                size: 16,
-                color: effectiveIsOn ? Colors.white : Colors.black,
+                  child: Icon(
+                    icon,
+                    color: effectiveIsOn ? Colors.white : Colors.black,
+                    size: 28,
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  applianceName,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: effectiveIsOn ? Colors.white : Color(0xFF1A1A1A),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 2),
+                Text(
+                  roomName,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: effectiveIsOn ? Colors.white70 : Colors.grey[600],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 1),
+                Text(
+                  deviceType,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    color: effectiveIsOn ? Colors.white60 : Colors.grey[500],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 4),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: effectiveIsOn
+                        ? Color(0xFF4CAF50).withOpacity(0.3)
+                        : Colors.grey.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: effectiveIsOn ? Color(0xFF4CAF50) : Colors.grey,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    effectiveIsOn ? 'ON' : 'OFF',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: effectiveIsOn ? Color(0xFF4CAF50) : Colors.grey[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ),
+          Positioned(
+            top: 12,
+            right: 12,
+            child: InkWell(
+              onTap: () {
+                if (applianceStatus == 'ON') {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          Icon(Icons.warning_rounded, color: Colors.white),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              "Turn off the appliance before editing.",
+                              style: GoogleFonts.inter(color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: Colors.red[600],
+                      duration: const Duration(seconds: 3),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  );
+                } else {
+                  Navigator.pushNamed(
+                    context,
+                    '/editdevice',
+                    arguments: {'applianceId': applianceId},
+                  );
+                }
+              },
+              child: Container(
+                padding: EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: effectiveIsOn
+                      ? Colors.white.withOpacity(0.2)
+                      : Colors.black.withOpacity(0.06),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.edit_rounded,
+                  size: 16,
+                  color: effectiveIsOn ? Colors.white : Colors.black,
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

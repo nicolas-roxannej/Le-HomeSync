@@ -14,7 +14,7 @@ class NotificationScreen extends StatefulWidget {
   State<NotificationScreen> createState() => _NotificationScreenState();
 }
 
-class _NotificationScreenState extends State<NotificationScreen> {
+class _NotificationScreenState extends State<NotificationScreen> with SingleTickerProviderStateMixin {
   bool _isSelectionMode = false;
   bool _selectAll = false;
   bool _showingArchived = false;
@@ -23,26 +23,30 @@ class _NotificationScreenState extends State<NotificationScreen> {
   List<NotificationItem> _selectedNotifications = [];
 
   StreamSubscription<QuerySnapshot>? _notificationsSub;
+  late AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 300),
+    );
     _initNotificationsListener();
   }
 
   @override
   void dispose() {
     _notificationsSub?.cancel();
+    _animationController.dispose();
     super.dispose();
   }
 
   void _initNotificationsListener() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Fallback to local storage for unauthenticated users
       final local = await _loadNotificationsFromPrefs();
       setState(() => _notifications = local);
-      // Check last tapped doc id (from local taps)
       final prefs = await SharedPreferences.getInstance();
       final lastTapped = prefs.getString('last_tapped_notification_docid') ?? '';
       if (lastTapped.isNotEmpty) {
@@ -52,10 +56,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       return;
     }
 
-  // Prefer ordering by createdAt (new schema). Fall back to timestamp for older records.
-  final coll = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('notifications');
-  // Use a try/catch ordering by createdAt; if createdAt missing on some docs, the query still works.
-  _notificationsSub = coll.orderBy('createdAt', descending: true).snapshots().listen((snap) {
+    final coll = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('notifications');
+    _notificationsSub = coll.orderBy('createdAt', descending: true).snapshots().listen((snap) {
       final active = <NotificationItem>[];
       final archived = <NotificationItem>[];
       for (var doc in snap.docs) {
@@ -64,10 +66,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
         final body = (data['body'] as String?) ?? '';
         final typeStr = (data['type'] as String?) ?? 'system';
         final isArchived = (data['archived'] as bool?) ?? false;
-        // Read createdAt if available, else fallback to older timestamp field
         String timeString = '';
         try {
-          final ts = (data['createdAt'] ?? data['timestamp']); // prefer createdAt
+          final ts = (data['createdAt'] ?? data['timestamp']);
           if (ts is Timestamp) {
             timeString = _readableTime(ts.toDate());
           } else {
@@ -90,7 +91,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
       setState(() {
         _notifications = active;
         _archivedNotifications = archived;
-        // Show last tapped doc id if present (quick highlight feedback)
         SharedPreferences.getInstance().then((prefs) async {
           final lastTapped = prefs.getString('last_tapped_notification_docid') ?? '';
           if (lastTapped.isNotEmpty) {
@@ -104,7 +104,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
         });
       });
     }, onError: (e) async {
-      // If listener fails, fallback to local prefs
       final local = await _loadNotificationsFromPrefs();
       setState(() => _notifications = local);
     });
@@ -123,7 +122,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         final time = (m['time'] as String?) ?? '';
         final docId = (m['docId'] as String?) ?? '';
         final typeRaw = (m['type'] as String?) ?? 'system';
-        final type = typeRaw.split('.').last; // e.g. NotificationType.device
+        final type = typeRaw.split('.').last;
         out.add(NotificationItem(id: docId.isNotEmpty ? docId : localId, title: title, description: body, time: time, isSelected: false, type: type));
       } catch (_) {}
     }
@@ -142,14 +141,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
-  // Deletion helpers removed: deletion/remote delete is disabled per specification.
-
   void _enterSelectionMode(NotificationItem notification) {
     setState(() {
       _isSelectionMode = true;
       notification.isSelected = true;
       _updateSelectedNotifications();
     });
+    _animationController.forward();
   }
 
   void _exitSelectionMode() {
@@ -157,7 +155,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
       _isSelectionMode = false;
       _selectAll = false;
       
-      // Clear all selections
       for (var notification in _notifications) {
         notification.isSelected = false;
       }
@@ -166,6 +163,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       }
       _selectedNotifications.clear();
     });
+    _animationController.reverse();
   }
 
   void _toggleSelectAll() {
@@ -188,13 +186,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
     if (_selectedNotifications.isEmpty) return;
     
     setState(() {
-      // Move selected notifications to archived list
       for (var notification in _selectedNotifications) {
         notification.isSelected = false;
         _archivedNotifications.add(notification);
       }
       
-      // Remove from main notifications list
       _notifications.removeWhere((notification) => _selectedNotifications.contains(notification));
       
       _selectedNotifications.clear();
@@ -202,33 +198,33 @@ class _NotificationScreenState extends State<NotificationScreen> {
       _selectAll = false;
     });
 
-    // Show confirmation message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Notifications archived successfully'),
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 12),
+            Text('Notifications archived successfully'),
+          ],
+        ),
         duration: Duration(seconds: 2),
-        backgroundColor: Colors.green,
+        backgroundColor: Color(0xFF4CAF50),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
-    // Note: deletion to Firestore is intentionally disabled per specification.
-    // Persist archived flag to Firestore for selected notifications (if user is signed in)
     _persistArchiveSelected(_selectedNotifications, archived: true);
   }
-
-  // Attempt to delete corresponding Firestore notifications if they exist.
-  // Deletion persistence disabled intentionally.
 
   void _unarchiveSelected() {
     if (_selectedNotifications.isEmpty) return;
     
     setState(() {
-      // Move selected archived notifications back to main list
       for (var notification in _selectedNotifications) {
         notification.isSelected = false;
         _notifications.add(notification);
       }
       
-      // Remove from archived list
       _archivedNotifications.removeWhere((notification) => _selectedNotifications.contains(notification));
       
       _selectedNotifications.clear();
@@ -236,22 +232,28 @@ class _NotificationScreenState extends State<NotificationScreen> {
       _selectAll = false;
     });
 
-    // Show confirmation message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Notifications unarchived successfully'),
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 12),
+            Text('Notifications unarchived successfully'),
+          ],
+        ),
         duration: Duration(seconds: 2),
-        backgroundColor: Colors.blue,
+        backgroundColor: Color(0xFF2196F3),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
-    // Persist unarchive state
     _persistArchiveSelected(_selectedNotifications, archived: false);
   }
 
   Future<void> _persistArchiveSelected(List<NotificationItem> items, {required bool archived}) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return; // only persist for authenticated users
+      if (user == null) return;
       for (var item in items) {
         try {
           await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('notifications').doc(item.id).set({'archived': archived, 'timestamp': FieldValue.serverTimestamp()}, SetOptions(merge: true));
@@ -278,8 +280,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
     });
   }
 
-  // Per spec: deletion UI removed and deletion operations disabled.
-
   List<NotificationItem> _getCurrentNotificationsList() {
     return _showingArchived ? _archivedNotifications : _notifications;
   }
@@ -288,72 +288,99 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE9E7E6),
-      body: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.only(left: 5, top: 70),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(Icons.arrow_back, size: 50, color: Colors.black),
-                  onPressed: () {
-                    if (_showingArchived) {
-                      _goBackToActive();
-                    } else {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                ),
-                Transform.translate(
-                  offset: Offset(1, -1),
-                  child: Expanded(
-                    child: Text(
-                      _showingArchived ? 'Archived' : 'Notification',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.jaldi(
-                        textStyle: TextStyle(
-                            fontSize: 23, fontWeight: FontWeight.bold),
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
-                ),
-                if (!_showingArchived) ...[
-                  Transform.translate(
-                    offset: Offset(70, -1),
-                    child: IconButton(
-                      icon: Icon(Icons.archive_outlined, color: Colors.black, size: 30),
-                      onPressed: _goToArchive,
-                      tooltip: 'View Archived',
-                    ),
-                  ),
-                ],
-                Transform.translate(
-                  offset: Offset(_showingArchived ? 120: 68, -1),
-                  child: IconButton(
-                    icon: Icon(Icons.settings, color: Colors.black, size: 30),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => NotificationSettings()),
-                      );
-                    },
-                  ),
-                ),
-              ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildAppBar(),
+            Expanded(
+              child: _getCurrentNotificationsList().isEmpty
+                  ? _buildEmptyNotifications()
+                  : _buildNotificationsList(),
             ),
-          ),
-          Expanded(
-            child: _getCurrentNotificationsList().isEmpty
-                ? _buildEmptyNotifications()
-                : _buildNotificationsList(),
-          ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: _isSelectionMode
           ? _buildSelectionModeBar()
           : null,
+    );
+  }
+
+  Widget _buildAppBar() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+      decoration: BoxDecoration(
+        color: Color(0xFFE9E7E6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.arrow_back_ios_new, size: 22, color: Colors.black87),
+              onPressed: () {
+                if (_showingArchived) {
+                  _goBackToActive();
+                } else {
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: Text(
+                _showingArchived ? 'Archived' : 'Notifications',
+                style: GoogleFonts.inter(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+          ),
+          if (!_showingArchived) ...[
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: IconButton(
+                icon: Icon(Icons.archive_outlined, color: Colors.black87, size: 22),
+                onPressed: _goToArchive,
+                tooltip: 'View Archived',
+              ),
+            ),
+            SizedBox(width: 8),
+          ],
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.settings_outlined, color: Colors.black87, size: 22),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => NotificationSettings()),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -362,23 +389,33 @@ class _NotificationScreenState extends State<NotificationScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Transform.translate(
-            offset: Offset(0, -70),
+          Container(
+            padding: EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.6),
+              shape: BoxShape.circle,
+            ),
             child: Icon(
-              Icons.notifications,
-              size: 100,
-              color: const Color(0xFF757575),
+              _showingArchived ? Icons.archive_outlined : Icons.notifications_outlined,
+              size: 80,
+              color: Colors.black26,
             ),
           ),
-          SizedBox(height: 16),
-          Transform.translate(
-            offset: Offset(0, -85),
-            child: Text(
-              _showingArchived ? 'No Archived Notifications' : 'No Notification',
-              style: GoogleFonts.inter(
-                color: Colors.grey[600],
-                fontSize: 15,
-              ),
+          SizedBox(height: 24),
+          Text(
+            _showingArchived ? 'No Archived Notifications' : 'No Notifications',
+            style: GoogleFonts.inter(
+              color: Colors.black54,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            _showingArchived ? 'Archived items will appear here' : 'You\'re all caught up!',
+            style: GoogleFonts.inter(
+              color: Colors.black38,
+              fontSize: 14,
             ),
           ),
         ],
@@ -389,34 +426,37 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Widget _buildNotificationsList() {
     List<NotificationItem> currentList = _getCurrentNotificationsList();
     return ListView.builder(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: currentList.length,
       itemBuilder: (context, index) {
         final notification = currentList[index];
-        return NotificationCard(
-          notification: notification,
-          isDeleteMode: _isSelectionMode,
-          onToggleSelection: () {
-            setState(() {
-              notification.isSelected = !notification.isSelected;
-              if (!notification.isSelected) {
-                _selectAll = false;
-              } else {
-                _selectAll = currentList.every((n) => n.isSelected == true);
+        return AnimatedScale(
+          scale: notification.isSelected ? 0.98 : 1.0,
+          duration: Duration(milliseconds: 200),
+          child: NotificationCard(
+            notification: notification,
+            isDeleteMode: _isSelectionMode,
+            onToggleSelection: () {
+              setState(() {
+                notification.isSelected = !notification.isSelected;
+                if (!notification.isSelected) {
+                  _selectAll = false;
+                } else {
+                  _selectAll = currentList.every((n) => n.isSelected == true);
+                }
+                _updateSelectedNotifications();
+                
+                if (_selectedNotifications.isEmpty) {
+                  _isSelectionMode = false;
+                }
+              });
+            },
+            onLongPress: () {
+              if (!_isSelectionMode) {
+                _enterSelectionMode(notification);
               }
-              _updateSelectedNotifications();
-              
-              // Exit selection mode if no items selected
-              if (_selectedNotifications.isEmpty) {
-                _isSelectionMode = false;
-              }
-            });
-          },
-          onLongPress: () {
-            if (!_isSelectionMode) {
-              _enterSelectionMode(notification);
-            }
-          },
-        
+            },
+          ),
         );
       },
     );
@@ -424,52 +464,92 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   Widget _buildSelectionModeBar() {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: const Color(0xFFE9E7E6),
-      child: Row(
-        children: [
-          Row(
-            children: [
-              Checkbox(
-                value: _selectAll,
-                onChanged: (value) {
-                  _toggleSelectAll();
-                },
-              ),
-              Transform.translate(
-                offset: Offset(-5, 0),
-                child: Text(
-                  'Select All',
-                  style: GoogleFonts.jaldi(
-                    textStyle: TextStyle(
-                      fontSize: 18,
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: Offset(0, -4),
+          ),
+        ],
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: _toggleSelectAll,
+              child: Row(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: _selectAll ? Colors.black87 : Colors.transparent,
+                      border: Border.all(
+                        color: _selectAll ? Colors.black87 : Colors.black38,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    color: Colors.black,
+                    child: _selectAll
+                        ? Icon(Icons.check, size: 16, color: Colors.white)
+                        : null,
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'Select All',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Spacer(),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: _showingArchived 
+                      ? [Colors.black, Colors.black]
+                      : [Colors.black, Colors.black],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: (_showingArchived ? Colors.black : Colors.black).withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _showingArchived ? _unarchiveSelected : _archiveSelected,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shadowColor: Colors.transparent,
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                icon: Icon(_showingArchived ? Icons.unarchive : Icons.archive, size: 20),
+                label: Text(
+                  _showingArchived ? 'Unarchive' : 'Archive',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            ],
-          ),
-          Spacer(),
-          ElevatedButton.icon(
-            onPressed: _showingArchived ? _unarchiveSelected : _archiveSelected,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _showingArchived ? Colors.blue : Colors.orange,
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
-            icon: Icon(
-              _showingArchived ? Icons.unarchive : Icons.archive,
-              size: 20,
-            ),
-            label: Text(
-              _showingArchived ? 'Unarchive Selected' : 'Archive Selected',
-              style: TextStyle(
-                fontSize: 15,
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -509,58 +589,139 @@ class NotificationCard extends StatelessWidget {
     this.onDelete,
   });
 
+  IconData _getNotificationIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'device':
+        return Icons.devices_outlined;
+      case 'security':
+        return Icons.security_outlined;
+      case 'reminder':
+        return Icons.schedule_outlined;
+      case 'alert':
+        return Icons.warning_amber_outlined;
+      default:
+        return Icons.notifications_outlined;
+    }
+  }
+
+  Color _getNotificationColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'device':
+        return Colors.black;
+      case 'security':
+        return Color(0xFFF44336);
+      case 'reminder':
+        return Color(0xFF4CAF50);
+      case 'alert':
+        return Color(0xFFFF9800);
+      default:
+        return Color(0xFF9E9E9E);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Transform.translate(
-      offset: Offset(0, -15),
-      child: Card(
-        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        elevation: 5,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+    return Container(
+      margin: EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.09),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(20),
           onLongPress: onLongPress,
           onTap: isDeleteMode ? onToggleSelection : null,
-          child: ListTile(
-            contentPadding: EdgeInsets.all(16),
-            leading: isDeleteMode
-                ? Checkbox(
-                    value: notification.isSelected,
-                    onChanged: (value) {
-                      onToggleSelection();
-                    },
-                  )
-                : CircleAvatar(
-                    backgroundColor: Colors.grey,
-                    child: Icon(
-                      Icons.notifications,
-                      color: Colors.black,
-                    ),
-                  ),
-            title: Text(
-              notification.title,
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            subtitle: Column(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: 4),
-                Text(notification.description),
-                SizedBox(height: 4),
-                Text(
-                  notification.time,
-                  style: GoogleFonts.inter(
-                    color: Colors.grey[600],
-                    fontSize: 12,
+                if (isDeleteMode)
+                  Container(
+                    margin: EdgeInsets.only(right: 16),
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: notification.isSelected ? Colors.black87 : Colors.transparent,
+                      border: Border.all(
+                        color: notification.isSelected ? Colors.black87 : Colors.black26,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: notification.isSelected
+                        ? Icon(Icons.check, size: 16, color: Colors.white)
+                        : null,
+                  )
+                else
+                  Container(
+                    margin: EdgeInsets.only(right: 16),
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _getNotificationColor(notification.type).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      _getNotificationIcon(notification.type),
+                      color: _getNotificationColor(notification.type),
+                      size: 24,
+                    ),
+                  ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        notification.title,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          color: Colors.black87,
+                          height: 1.3,
+                        ),
+                      ),
+                      if (notification.description.isNotEmpty) ...[
+                        SizedBox(height: 6),
+                        Text(
+                          notification.description,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: Colors.black54,
+                            height: 1.4,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.access_time, size: 14, color: Colors.black38),
+                          SizedBox(width: 4),
+                          Text(
+                            notification.time,
+                            style: GoogleFonts.inter(
+                              color: Colors.black38,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            trailing: null,
           ),
         ),
       ),

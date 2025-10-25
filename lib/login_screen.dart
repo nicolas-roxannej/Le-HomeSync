@@ -18,7 +18,7 @@ class LoginScreen extends StatefulWidget {
   _LoginScreenState createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
   bool _rememberMe = false;
   bool _passwordVisible = false;
   bool _isLoading = false;
@@ -31,7 +31,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final EmailOTPService _otpService = EmailOTPService();
 
-  // Individual controllers for each OTP digit
   final List<TextEditingController> _otpControllers = List.generate(
     6,
     (index) => TextEditingController(),
@@ -43,11 +42,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
   int _otpResendSeconds = 30;
   Timer? _resendTimer;
+  
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     _loadRememberMe();
+    
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    );
+    _fadeController.forward();
   }
 
   @override
@@ -61,6 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
       node.dispose();
     }
     _resendTimer?.cancel();
+    _fadeController.dispose();
     super.dispose();
   }
 
@@ -168,7 +181,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
         _startResendTimer();
 
-        // Focus first OTP field after modal appears
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted && _otpFocusNodes[0].canRequestFocus) {
             _otpFocusNodes[0].requestFocus();
@@ -315,10 +327,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFFD32F2F),
         duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -328,31 +357,59 @@ class _LoginScreenState extends State<LoginScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-         content: Text(
-      message,
-      style: const TextStyle(color: Colors.black), // Add your desired color
-    ),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_outline, color: Colors.black87),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.inter(
+                  color: Colors.black87,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
         backgroundColor: const Color(0xFFE9E7E6),
         duration: const Duration(seconds: 5),
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        elevation: 3,
       ),
     );
   }
 
   Widget _buildOTPInput(int index) {
-    return Container(
-      width: 38,
-      height: 50,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: _otpControllers[index].text.isNotEmpty
-              ? Colors.black
-              : Colors.grey[400]!,
-          width: _otpFocusNodes[index].hasFocus ? 2 : 1,
+    return Flexible(
+      child: Container(
+        constraints: const BoxConstraints(
+          maxWidth: 50,
+          minWidth: 38,
         ),
-      ),
+        height: 50,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: _otpControllers[index].text.isNotEmpty
+                ? Colors.black
+                : Colors.grey[300]!,
+            width: _otpFocusNodes[index].hasFocus ? 2 : 1.5,
+          ),
+          boxShadow: _otpFocusNodes[index].hasFocus
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : [],
+        ),
       child: Center(
         child: TextField(
           controller: _otpControllers[index],
@@ -363,14 +420,14 @@ class _LoginScreenState extends State<LoginScreen> {
           maxLength: 1,
           style: GoogleFonts.inter(
             fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             color: Colors.black,
-            height: 1.0,
+            height: 1.2,
           ),
           decoration: const InputDecoration(
             counterText: '',
             border: InputBorder.none,
-            contentPadding: EdgeInsets.only(bottom: 8),
+            contentPadding: EdgeInsets.zero,
             isDense: true,
           ),
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -390,6 +447,7 @@ class _LoginScreenState extends State<LoginScreen> {
           },
         ),
       ),
+      ),
     );
   }
 
@@ -400,243 +458,423 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Stack(
         children: [
           // Main login form
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(14),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 5, top: 65),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.arrow_back,
-                          size: 50,
-                          color: Colors.black,
-                        ),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const WelcomeScreen(),
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Back button
+                      Align(
+                        alignment: Alignment.topLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 5, top: 50),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back_ios_new,
+                                size: 20,
+                                color: Colors.black,
+                              ),
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const WelcomeScreen(),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  Center(
-                    child: Transform.translate(
-                      offset: const Offset(0, -30),
-                      child: Image.asset('assets/homebg.png', 
-                        height: 200,
-                        errorBuilder: (context, error, stackTrace) => const Text(
-                          'HomeSync',
-                          style: TextStyle(fontSize: 40),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Transform.translate(
-                    offset: const Offset(-55, -250),
-                    child: Text(
-                      'LOG IN',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.jaldi(
-                        fontSize: 23,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
-                  Transform.translate(
-                    offset: const Offset(1, -125),
-                    child: Text(
-                      'HOMESYNC',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.mPlusRounded1c(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 25,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
 
-                  // EMAIL FIELD
-                  Transform.translate(
-                    offset: const Offset(0, -100),
-                    child: TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        filled: true,
-                        fillColor: Colors.transparent,
-                        prefixIcon: Icon(Icons.email, color: Colors.black),
-                        hintText: 'Email Address',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Email required';
-                        }
-                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                          return 'Enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-
-                  // PASSWORD FIELD
-                  Transform.translate(
-                    offset: const Offset(0, -90),
-                    child: TextFormField(
-                      controller: _passwordController,
-                      obscureText: !_passwordVisible,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.transparent,
-                        prefixIcon: const Icon(Icons.lock, color: Colors.black),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _passwordVisible ? Icons.visibility : Icons.visibility_off,
-                            color: Colors.grey,
+                      // Logo
+                      Center(
+                        child: Transform.translate(
+                          offset: const Offset(-1, -60),
+                          child: Hero(
+                            tag: 'logo',
+                            child: Image.asset(
+                              'assets/homebg.png',
+                              height: 200,
+                              errorBuilder: (context, error, stackTrace) => Text(
+                                'HomeSync',
+                                style: GoogleFonts.mPlusRounded1c(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
                           ),
-                          onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
                         ),
-                        hintText: 'Password',
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Password required';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
 
-                  Transform.translate(
-                    offset: const Offset(100, -90),
-                    child: TextButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ForgotPasswordScreen(),
+                      // Title
+                      Transform.translate(
+                        offset: const Offset(0, -125),
+                        child: Text(
+                          'HOMESYNC',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.mPlusRounded1c(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 25,
+                            color: Colors.black,
+                          ),
                         ),
                       ),
-                      child: Text(
-                        'Forgot Password?',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
 
-                  Transform.translate(
-                    offset: const Offset(-10, -135),
-                    child: Row(
-                      children: [
-                        Checkbox(
-                          value: _rememberMe,
-                          onChanged: (value) {
-                            setState(() => _rememberMe = value!);
-                            _saveRememberMe(value!);
+                      // Email Field
+                      Transform.translate(
+                        offset: const Offset(0, -100),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            color: Colors.black87,
+                          ),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.transparent,
+                            prefixIcon: const Icon(
+                              Icons.email_outlined,
+                              color: Colors.black54,
+                              size: 22,
+                            ),
+                            hintText: 'Email Address',
+                            hintStyle: GoogleFonts.inter(
+                              color: Colors.black38,
+                              fontSize: 15,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Colors.black,
+                                width: 2,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Colors.red,
+                                width: 1.5,
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Colors.red,
+                                width: 2,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 18,
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Email required';
+                            }
+                            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                .hasMatch(value)) {
+                              return 'Enter a valid email';
+                            }
+                            return null;
                           },
                         ),
-                        Transform.translate(
-                          offset: const Offset(-10, -1),
-                          child: Text(
-                            "Remember Me",
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              color: Colors.grey,
+                      ),
+                      ),
+
+                      // Password Field
+                      Transform.translate(
+                        offset: const Offset(0, -90),
+                        child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: TextFormField(
+                          controller: _passwordController,
+                          obscureText: !_passwordVisible,
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            color: Colors.black87,
+                          ),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.transparent,
+                            prefixIcon: const Icon(
+                              Icons.lock_outline,
+                              color: Colors.black54,
+                              size: 22,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _passwordVisible
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                color: Colors.black45,
+                                size: 22,
+                              ),
+                              onPressed: () => setState(
+                                  () => _passwordVisible = !_passwordVisible),
+                            ),
+                            hintText: 'Password',
+                            hintStyle: GoogleFonts.inter(
+                              color: Colors.black38,
+                              fontSize: 15,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Colors.black,
+                                width: 2,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Colors.red,
+                                width: 1.5,
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Colors.red,
+                                width: 2,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 18,
                             ),
                           ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Password required';
+                            }
+                            if (value.length < 6) {
+                              return 'Password must be at least 6 characters';
+                            }
+                            return null;
+                          },
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                      ),
 
-                  Transform.translate(
-                    offset: const Offset(0, -80),
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _handleLogin,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(0),
-                          side: const BorderSide(color: Colors.black),
-                        ),
-                        elevation: 5,
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.black,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Text(
-                              'Log In',
-                              style: GoogleFonts.judson(
-                                fontSize: 24,
-                                color: Colors.black,
-                              ),
-                            ),
-                    ),
-                  ),
+                      // Remember Me & Forgot Password
+                     Transform.translate(
+  offset: const Offset(0, -80),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Row(
+        children: [
+          SizedBox(
+            height: 24,
+            width: 24,
+            child: Checkbox(
+              value: _rememberMe,
+              onChanged: (value) {
+                setState(() => _rememberMe = value!);
+                _saveRememberMe(value!);
+              },
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+              activeColor: Colors.black,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            "Remember Me",
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: Colors.black54,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+      TextButton(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ForgotPasswordScreen(),
+          ),
+        ),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 4,
+          ),
+        ),
+        child: Text(
+          'Forgot Password?',
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: Colors.black54,
+            fontWeight: FontWeight.w600,
+            decoration: TextDecoration.underline,
+          ),
+        ),
+      ),
+    ],
+  ),
+),
 
-                 Transform.translate(
-                    offset: const Offset(0, -20),
-                  child: TextButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SignUpScreen(),
-                      
-                      ),
-                    ),
-                    child: Text(
-                      'Don\'t have an account? SIGN UP',
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                      ),
-                      ),
-                    ),
+const SizedBox(height: 30),
+
+// Login Button
+Transform.translate(
+  offset: const Offset(0, -80),
+  child: Container(
+    height: 56,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(16),
+      gradient: const LinearGradient(
+        colors: [Colors.black87, Colors.black],
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.3),
+          blurRadius: 12,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    ),
+    child: ElevatedButton(
+      onPressed: _isLoading ? null : _handleLogin,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      child: _isLoading
+          ? const SizedBox(
+              height: 24,
+              width: 24,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2.5,
+              ),
+            )
+          : Text(
+              'Log In',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                letterSpacing: 0.5,
+              ),
+            ),
+    ),
+  ),
+),
+
+// Sign Up Link
+Transform.translate(
+  offset: const Offset(0, -20),
+  child: Center(
+    child: TextButton(
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const SignUpScreen(),
+        ),
+      ),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 8,
+        ),
+      ),
+      child: Text(
+        'Don\'t have an account? SIGN UP',
+        style: GoogleFonts.inter(
+          fontSize: 15,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey,
+        ),
+      ),
+    ),
+  ),
+),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
 
-         
+          // OTP Modal
           if (_showOTPModal) ...[
-            
+            // Background overlay
             GestureDetector(
-              onTap: () {}, 
-              child: Container(
+              onTap: () {},
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
                 width: double.infinity,
                 height: double.infinity,
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withOpacity(0.5),
               ),
             ),
 
-            // OTP Dialog 
+            // OTP Dialog
             Center(
               child: SingleChildScrollView(
                 child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-                  padding: const EdgeInsets.all(24),
+                  width: double.infinity,
+                  margin: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -644,7 +882,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                     
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
@@ -654,33 +891,33 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Icon(
                           Icons.security,
                           color: Colors.blue.shade700,
-                          size: 28,
+                          size: 26,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Text(
                         'Two-Factor Authentication',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Colors.black,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
                         'Enter the 6-digit code',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
-                          fontSize: 13,
+                          fontSize: 12,
                           color: Colors.grey[600],
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
+                          horizontal: 10,
+                          vertical: 5,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade100,
@@ -691,15 +928,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             Icon(
                               Icons.email_outlined,
-                              size: 14,
+                              size: 13,
                               color: Colors.grey[600],
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 5),
                             Flexible(
                               child: Text(
                                 _userEmail ?? '',
                                 style: GoogleFonts.inter(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   color: Colors.grey[700],
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -708,49 +945,49 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 20),
-//box
-                      SizedBox(
-                        height: 55,
+                      const SizedBox(height: 16),
+
+                      // OTP Input Boxes
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: List.generate(
                             6,
-                            (index) => Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: index == 0 || index == 5 ? 0 : 2,
-                              ),
-                              child: _buildOTPInput(index),
-                            ),
+                            (index) => _buildOTPInput(index),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
-//resend
+                      const SizedBox(height: 16),
+
+                      // Resend Code
                       if (_otpResendSeconds > 0)
                         Text(
                           'Resend code in $_otpResendSeconds seconds',
                           style: GoogleFonts.inter(
-                            fontSize: 13,
+                            fontSize: 12,
                             color: Colors.grey[600],
                           ),
                         )
                       else
                         TextButton(
                           onPressed: _isLoading ? null : _resendOTP,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 Icons.refresh,
-                                size: 16,
+                                size: 15,
                                 color: Colors.blue.shade600,
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 5),
                               Text(
                                 'Resend Code',
                                 style: GoogleFonts.inter(
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.blue.shade600,
                                 ),
@@ -758,9 +995,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ],
                           ),
                         ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
 
-                      // btn
+                      // Action Buttons
                       Row(
                         children: [
                           Expanded(
@@ -772,17 +1009,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                 _clearOTPFields();
                                 _resendTimer?.cancel();
                               },
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
                               child: Text(
                                 'Cancel',
                                 style: GoogleFonts.inter(
-                                  fontSize: 16,
+                                  fontSize: 14,
                                   color: Colors.grey[600],
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: ElevatedButton(
                               onPressed: _isLoading ? null : _verifyOTP,
@@ -792,12 +1032,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
                               ),
                               child: _isLoading
                                   ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
+                                      height: 18,
+                                      width: 18,
                                       child: CircularProgressIndicator(
                                         color: Colors.white,
                                         strokeWidth: 2,
@@ -806,7 +1046,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   : Text(
                                       'Verify',
                                       style: GoogleFonts.inter(
-                                        fontSize: 16,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
